@@ -83,7 +83,7 @@ RSpec.describe Fal::Client do
     end
 
     it "submits to queue first" do
-      expect(connection).to receive(:post) do |endpoint, body:|
+      expect(connection).to receive(:post) do |endpoint, **_kwargs|
         expect(endpoint).to be_a(Fal::Endpoints::Submit)
       end.and_return(submit_response)
 

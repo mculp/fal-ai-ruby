@@ -65,10 +65,10 @@ RSpec.describe Fal::Subscriber do
         subscriber.wait_for_completion(app_id, request_id) { |s| statuses << s }
 
         expect(statuses.map(&:class)).to eq([
-          Fal::Status::Queued,
-          Fal::Status::InProgress,
-          Fal::Status::Completed
-        ])
+                                              Fal::Status::Queued,
+                                              Fal::Status::InProgress,
+                                              Fal::Status::Completed
+                                            ])
       end
     end
 

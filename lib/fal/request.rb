@@ -6,7 +6,7 @@ module Fal
   # Builds HTTP request components (headers, body).
   class Request
     CONTENT_TYPE = "application/json"
-    USER_AGENT = "fal-ruby/#{VERSION}"
+    USER_AGENT = "fal-ruby/#{VERSION}".freeze
 
     def initialize(config:)
       @config = config

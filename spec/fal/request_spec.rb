@@ -19,7 +19,7 @@ RSpec.describe Fal::Request do
     end
 
     it "includes User-Agent header" do
-      expect(request.headers["User-Agent"]).to match(/^fal-ruby\//)
+      expect(request.headers["User-Agent"]).to match(%r{^fal-ruby/})
     end
 
     it "includes version in User-Agent" do
