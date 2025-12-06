@@ -1,13 +1,15 @@
-# Fal
+# fal-ai
 
-Ruby client for [fal.ai](https://fal.ai) Model APIs.
+[![Gem Version](https://badge.fury.io/rb/fal-ai.svg)](https://badge.fury.io/rb/fal-ai)
+
+Ruby client for [fal.ai](https://fal.ai) - the generative AI platform with 600+ models.
 
 ## Installation
 
 Add this line to your application's Gemfile:
 
 ```ruby
-gem "fal"
+gem "fal-ai"
 ```
 
 And then execute:
@@ -19,7 +21,7 @@ bundle install
 Or install it yourself as:
 
 ```bash
-gem install fal
+gem install fal-ai
 ```
 
 ## Usage
@@ -27,7 +29,7 @@ gem install fal
 ### Configuration
 
 ```ruby
-require "fal"
+require "fal-ai"
 
 # Configure with API key (or set FAL_KEY environment variable)
 Fal.configure do |config|
@@ -122,6 +124,10 @@ end
 
 After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake spec` to run the tests. You can also run `bin/console` for an interactive prompt.
 
+## Contributing
+
+Bug reports and pull requests are welcome on GitHub at https://github.com/mculp/fal-ai-ruby.
+
 ## License
 
-The gem is available as open source under the terms of the MIT License.
+The gem is available as open source under the terms of the [MIT License](LICENSE.txt).
