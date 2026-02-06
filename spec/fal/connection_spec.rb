@@ -129,10 +129,8 @@ RSpec.describe Fal::Connection do
 
   describe "#get" do
     let(:endpoint) do
-      Fal::Endpoints::Status.new(
-        app_id: "fal-ai/flux",
-        request_id: "abc-123",
-        base_url: "https://queue.fal.run"
+      Fal::Endpoints::Url.new(
+        url: "https://queue.fal.run/fal-ai/flux/requests/abc-123/status"
       )
     end
 

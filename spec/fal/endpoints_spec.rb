@@ -48,51 +48,21 @@ RSpec.describe Fal::Endpoints::Submit do
   end
 end
 
-RSpec.describe Fal::Endpoints::Status do
+RSpec.describe Fal::Endpoints::Url do
   describe "#url" do
-    it "returns the queue status endpoint URL" do
-      endpoint = Fal::Endpoints::Status.new(
-        app_id: "fal-ai/flux/dev",
-        request_id: "abc-123",
-        base_url: "https://queue.fal.run"
+    it "returns the provided URL" do
+      endpoint = Fal::Endpoints::Url.new(
+        url: "https://queue.fal.run/fal-ai/flux/requests/abc-123/status"
       )
 
-      expect(endpoint.url).to eq("https://queue.fal.run/fal-ai/flux/dev/requests/abc-123/status")
+      expect(endpoint.url).to eq("https://queue.fal.run/fal-ai/flux/requests/abc-123/status")
     end
   end
 
   describe "#method" do
     it "returns :get" do
-      endpoint = Fal::Endpoints::Status.new(
-        app_id: "fal-ai/flux/dev",
-        request_id: "abc-123",
-        base_url: "https://queue.fal.run"
-      )
-
-      expect(endpoint.method).to eq(:get)
-    end
-  end
-end
-
-RSpec.describe Fal::Endpoints::Result do
-  describe "#url" do
-    it "returns the queue result endpoint URL" do
-      endpoint = Fal::Endpoints::Result.new(
-        app_id: "fal-ai/flux/dev",
-        request_id: "abc-123",
-        base_url: "https://queue.fal.run"
-      )
-
-      expect(endpoint.url).to eq("https://queue.fal.run/fal-ai/flux/dev/requests/abc-123")
-    end
-  end
-
-  describe "#method" do
-    it "returns :get" do
-      endpoint = Fal::Endpoints::Result.new(
-        app_id: "fal-ai/flux/dev",
-        request_id: "abc-123",
-        base_url: "https://queue.fal.run"
+      endpoint = Fal::Endpoints::Url.new(
+        url: "https://queue.fal.run/fal-ai/flux/requests/abc-123/status"
       )
 
       expect(endpoint.method).to eq(:get)

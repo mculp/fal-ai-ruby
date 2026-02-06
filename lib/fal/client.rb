@@ -19,8 +19,8 @@ module Fal
     end
 
     def subscribe(app_id, input, &on_queue_update)
-      request_id = queue.submit(app_id, input)
-      subscriber.wait_for_completion(app_id, request_id, &on_queue_update)
+      submit_response = queue.submit(app_id, input)
+      subscriber.wait_for_completion(submit_response, &on_queue_update)
     end
 
     def queue

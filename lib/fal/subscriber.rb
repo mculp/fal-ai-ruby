@@ -9,14 +9,14 @@ module Fal
       @timeout = timeout
     end
 
-    def wait_for_completion(app_id, request_id, &on_update)
+    def wait_for_completion(submit_response, &on_update)
       deadline = Time.now + @timeout
 
       loop do
         check_timeout(deadline)
-        status = @queue.status(app_id, request_id)
+        status = @queue.status(submit_response.status_url)
         yield_status(status, &on_update)
-        return fetch_result(app_id, request_id) if status.completed?
+        return @queue.result(submit_response.response_url) if status.completed?
 
         sleep(@poll_interval)
       end
@@ -32,10 +32,6 @@ module Fal
 
     def yield_status(status, &on_update)
       on_update&.call(status)
-    end
-
-    def fetch_result(app_id, request_id)
-      @queue.result(app_id, request_id)
     end
   end
 end

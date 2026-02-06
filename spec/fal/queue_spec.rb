@@ -13,27 +13,35 @@ RSpec.describe Fal::Queue do
 
   describe "#submit" do
     let(:response) do
-      instance_double(Fal::Response, request_id: "req-123")
+      instance_double(
+        Fal::Response,
+        request_id: "req-123",
+        status_url: "https://queue.fal.run/fal-ai/flux/requests/req-123/status",
+        response_url: "https://queue.fal.run/fal-ai/flux/requests/req-123"
+      )
     end
 
     before do
       allow(connection).to receive(:post).and_return(response)
     end
 
-    it "returns the request_id" do
-      result = queue.submit("fal-ai/flux", { prompt: "a cat" })
+    it "returns a SubmitResponse with request_id and URLs" do
+      result = queue.submit("fal-ai/flux/schnell", { prompt: "a cat" })
 
-      expect(result).to eq("req-123")
+      expect(result).to be_a(Fal::SubmitResponse)
+      expect(result.request_id).to eq("req-123")
+      expect(result.status_url).to eq("https://queue.fal.run/fal-ai/flux/requests/req-123/status")
+      expect(result.response_url).to eq("https://queue.fal.run/fal-ai/flux/requests/req-123")
     end
 
     it "posts to the submit endpoint with input" do
       expect(connection).to receive(:post) do |endpoint, body:|
         expect(endpoint).to be_a(Fal::Endpoints::Submit)
-        expect(endpoint.url).to eq("https://queue.fal.run/fal-ai/flux")
+        expect(endpoint.url).to eq("https://queue.fal.run/fal-ai/flux/schnell")
         expect(body).to eq({ prompt: "a cat" })
       end.and_return(response)
 
-      queue.submit("fal-ai/flux", { prompt: "a cat" })
+      queue.submit("fal-ai/flux/schnell", { prompt: "a cat" })
     end
   end
 
@@ -48,18 +56,18 @@ RSpec.describe Fal::Queue do
     end
 
     it "returns a status object" do
-      result = queue.status("fal-ai/flux", "req-123")
+      result = queue.status("https://queue.fal.run/fal-ai/flux/requests/req-123/status")
 
       expect(result).to be_a(Fal::Status::Queued)
     end
 
-    it "gets the status endpoint" do
+    it "gets the status URL directly" do
       expect(connection).to receive(:get) do |endpoint|
-        expect(endpoint).to be_a(Fal::Endpoints::Status)
+        expect(endpoint).to be_a(Fal::Endpoints::Url)
         expect(endpoint.url).to eq("https://queue.fal.run/fal-ai/flux/requests/req-123/status")
       end.and_return(response)
 
-      queue.status("fal-ai/flux", "req-123")
+      queue.status("https://queue.fal.run/fal-ai/flux/requests/req-123/status")
     end
   end
 
@@ -74,18 +82,18 @@ RSpec.describe Fal::Queue do
     end
 
     it "returns the result data" do
-      result = queue.result("fal-ai/flux", "req-123")
+      result = queue.result("https://queue.fal.run/fal-ai/flux/requests/req-123")
 
       expect(result).to eq(result_data)
     end
 
-    it "gets the result endpoint" do
+    it "gets the response URL directly" do
       expect(connection).to receive(:get) do |endpoint|
-        expect(endpoint).to be_a(Fal::Endpoints::Result)
+        expect(endpoint).to be_a(Fal::Endpoints::Url)
         expect(endpoint.url).to eq("https://queue.fal.run/fal-ai/flux/requests/req-123")
       end.and_return(response)
 
-      queue.result("fal-ai/flux", "req-123")
+      queue.result("https://queue.fal.run/fal-ai/flux/requests/req-123")
     end
   end
 end

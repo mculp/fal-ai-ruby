@@ -34,34 +34,13 @@ module Fal
       end
     end
 
-    # Endpoint for queue status: GET https://queue.fal.run/{app_id}/requests/{request_id}/status
-    class Status
-      def initialize(app_id:, request_id:, base_url:)
-        @app_id = app_id
-        @request_id = request_id
-        @base_url = base_url
+    # Endpoint wrapping a URL returned by the API (for status and result)
+    class Url
+      def initialize(url:)
+        @url = url
       end
 
-      def url
-        "#{@base_url}/#{@app_id}/requests/#{@request_id}/status"
-      end
-
-      def method
-        :get
-      end
-    end
-
-    # Endpoint for queue result: GET https://queue.fal.run/{app_id}/requests/{request_id}
-    class Result
-      def initialize(app_id:, request_id:, base_url:)
-        @app_id = app_id
-        @request_id = request_id
-        @base_url = base_url
-      end
-
-      def url
-        "#{@base_url}/#{@app_id}/requests/#{@request_id}"
-      end
+      attr_reader :url
 
       def method
         :get

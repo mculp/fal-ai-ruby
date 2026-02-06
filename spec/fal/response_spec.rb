@@ -79,6 +79,28 @@ RSpec.describe Fal::Response do
     end
   end
 
+  describe "#status_url" do
+    let(:status_code) { 200 }
+    let(:body) { '{"request_id": "abc-123", "status_url": "https://queue.fal.run/fal-ai/flux/requests/abc-123/status"}' }
+
+    it "returns the status_url from data" do
+      response = Fal::Response.new(http_response)
+
+      expect(response.status_url).to eq("https://queue.fal.run/fal-ai/flux/requests/abc-123/status")
+    end
+  end
+
+  describe "#response_url" do
+    let(:status_code) { 200 }
+    let(:body) { '{"request_id": "abc-123", "response_url": "https://queue.fal.run/fal-ai/flux/requests/abc-123"}' }
+
+    it "returns the response_url from data" do
+      response = Fal::Response.new(http_response)
+
+      expect(response.response_url).to eq("https://queue.fal.run/fal-ai/flux/requests/abc-123")
+    end
+  end
+
   describe "#error_message" do
     let(:status_code) { 400 }
 

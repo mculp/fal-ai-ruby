@@ -11,8 +11,13 @@ RSpec.describe Fal::Subscriber do
   end
 
   describe "#wait_for_completion" do
-    let(:app_id) { "fal-ai/flux" }
-    let(:request_id) { "req-123" }
+    let(:submit_response) do
+      Fal::SubmitResponse.new(
+        request_id: "req-123",
+        status_url: "https://queue.fal.run/fal-ai/flux/requests/req-123/status",
+        response_url: "https://queue.fal.run/fal-ai/flux/requests/req-123"
+      )
+    end
     let(:result_data) { { "images" => [{ "url" => "https://example.com/image.png" }] } }
 
     context "when immediately completed" do
@@ -24,22 +29,28 @@ RSpec.describe Fal::Subscriber do
       end
 
       it "returns the result" do
-        result = subscriber.wait_for_completion(app_id, request_id)
+        result = subscriber.wait_for_completion(submit_response)
 
         expect(result).to eq(result_data)
       end
 
       it "yields the completed status" do
         statuses = []
-        subscriber.wait_for_completion(app_id, request_id) { |s| statuses << s }
+        subscriber.wait_for_completion(submit_response) { |s| statuses << s }
 
         expect(statuses).to eq([completed_status])
       end
 
-      it "fetches the result after completion" do
-        expect(queue).to receive(:result).with(app_id, request_id)
+      it "fetches the result using the response URL" do
+        expect(queue).to receive(:result).with(submit_response.response_url)
 
-        subscriber.wait_for_completion(app_id, request_id)
+        subscriber.wait_for_completion(submit_response)
+      end
+
+      it "checks status using the status URL" do
+        expect(queue).to receive(:status).with(submit_response.status_url)
+
+        subscriber.wait_for_completion(submit_response)
       end
     end
 
@@ -57,12 +68,12 @@ RSpec.describe Fal::Subscriber do
       it "polls until completed" do
         expect(queue).to receive(:status).exactly(3).times
 
-        subscriber.wait_for_completion(app_id, request_id)
+        subscriber.wait_for_completion(submit_response)
       end
 
       it "yields each status update" do
         statuses = []
-        subscriber.wait_for_completion(app_id, request_id) { |s| statuses << s }
+        subscriber.wait_for_completion(submit_response) { |s| statuses << s }
 
         expect(statuses.map(&:class)).to eq([
                                               Fal::Status::Queued,
@@ -83,7 +94,7 @@ RSpec.describe Fal::Subscriber do
       end
 
       it "raises TimeoutError" do
-        expect { subscriber.wait_for_completion(app_id, request_id) }
+        expect { subscriber.wait_for_completion(submit_response) }
           .to raise_error(Fal::TimeoutError, /timed out/)
       end
     end
@@ -97,7 +108,7 @@ RSpec.describe Fal::Subscriber do
       end
 
       it "does not raise when no block given" do
-        expect { subscriber.wait_for_completion(app_id, request_id) }
+        expect { subscriber.wait_for_completion(submit_response) }
           .not_to raise_error
       end
     end
