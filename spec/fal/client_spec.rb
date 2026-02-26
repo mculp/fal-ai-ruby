@@ -53,10 +53,16 @@ RSpec.describe Fal::Client do
   end
 
   describe "#subscribe" do
-    let(:request_id) { "req-123" }
     let(:result_data) { { "images" => [{ "url" => "https://example.com/image.png" }] } }
 
-    let(:submit_response) { instance_double(Fal::Response, request_id: request_id) }
+    let(:submit_response) do
+      instance_double(
+        Fal::Response,
+        request_id: "req-123",
+        status_url: "https://queue.fal.run/fal-ai/flux/requests/req-123/status",
+        response_url: "https://queue.fal.run/fal-ai/flux/requests/req-123"
+      )
+    end
     let(:queued_status) { Fal::Status::Queued.new({ "status" => "IN_QUEUE", "queue_position" => 1 }) }
     let(:completed_status) { Fal::Status::Completed.new({ "status" => "COMPLETED" }) }
     let(:status_response_queued) { instance_double(Fal::Response, to_status: queued_status) }
@@ -70,14 +76,14 @@ RSpec.describe Fal::Client do
     end
 
     it "returns the final result" do
-      result = client.subscribe("fal-ai/flux", { prompt: "a cat" })
+      result = client.subscribe("fal-ai/flux/schnell", { prompt: "a cat" })
 
       expect(result).to eq(result_data)
     end
 
     it "yields status updates" do
       statuses = []
-      client.subscribe("fal-ai/flux", { prompt: "a cat" }) { |s| statuses << s }
+      client.subscribe("fal-ai/flux/schnell", { prompt: "a cat" }) { |s| statuses << s }
 
       expect(statuses.map(&:class)).to include(Fal::Status::Queued, Fal::Status::Completed)
     end
@@ -87,7 +93,7 @@ RSpec.describe Fal::Client do
         expect(endpoint).to be_a(Fal::Endpoints::Submit)
       end.and_return(submit_response)
 
-      client.subscribe("fal-ai/flux", { prompt: "a cat" })
+      client.subscribe("fal-ai/flux/schnell", { prompt: "a cat" })
     end
   end
 
@@ -103,7 +109,12 @@ RSpec.describe Fal::Client do
     it "uses the same connection" do
       # Queue should use the injected connection
       queue = client.queue
-      result_response = instance_double(Fal::Response, request_id: "req-123")
+      result_response = instance_double(
+        Fal::Response,
+        request_id: "req-123",
+        status_url: "https://queue.fal.run/fal-ai/flux/requests/req-123/status",
+        response_url: "https://queue.fal.run/fal-ai/flux/requests/req-123"
+      )
 
       expect(connection).to receive(:post).and_return(result_response)
 

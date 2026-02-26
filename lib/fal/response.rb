@@ -25,6 +25,14 @@ module Fal
       data["request_id"]
     end
 
+    def status_url
+      data["status_url"]
+    end
+
+    def response_url
+      data["response_url"]
+    end
+
     def error_message
       data["detail"] || data["message"] || "Unknown error"
     end

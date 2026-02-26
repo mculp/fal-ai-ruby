@@ -11,27 +11,26 @@ module Fal
     def submit(app_id, input)
       endpoint = Endpoints::Submit.new(app_id: app_id, base_url: @config.queue_url)
       response = @connection.post(endpoint, body: input)
-      response.request_id
+      SubmitResponse.new(
+        request_id: response.request_id,
+        status_url: response.status_url,
+        response_url: response.response_url
+      )
     end
 
-    def status(app_id, request_id)
-      endpoint = Endpoints::Status.new(
-        app_id: app_id,
-        request_id: request_id,
-        base_url: @config.queue_url
-      )
+    def status(status_url)
+      endpoint = Endpoints::Url.new(url: status_url)
       response = @connection.get(endpoint)
       response.to_status
     end
 
-    def result(app_id, request_id)
-      endpoint = Endpoints::Result.new(
-        app_id: app_id,
-        request_id: request_id,
-        base_url: @config.queue_url
-      )
+    def result(response_url)
+      endpoint = Endpoints::Url.new(url: response_url)
       response = @connection.get(endpoint)
       response.data
     end
   end
+
+  # Value object returned by Queue#submit
+  SubmitResponse = Struct.new(:request_id, :status_url, :response_url, keyword_init: true)
 end
