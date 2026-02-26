@@ -37,6 +37,8 @@ module Fal
     # Endpoint wrapping a URL returned by the API (for status and result)
     class Url
       def initialize(url:)
+        raise ArgumentError, "url cannot be nil" if url.nil?
+
         @url = url
       end
 
