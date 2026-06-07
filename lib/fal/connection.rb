@@ -1,96 +1,88 @@
 # frozen_string_literal: true
 
-require "http"
+require "faraday"
 
 module Fal
-  # HTTP connection wrapper using the http.rb gem.
-  # Dependency-injected for testability.
+  # HTTP transport built on Faraday. Faraday is pure Ruby (its default adapter is
+  # the stdlib net/http), so the gem installs with no native extensions on any
+  # Ruby. The Faraday object is injectable for testing.
   class Connection
-    def initialize(config:, http: HTTP)
+    def initialize(config:, faraday: nil)
       @config = config
-      @http = http
       @request = Request.new(config: config)
+      @faraday = faraday || build_faraday
     end
 
     def post(endpoint, body: nil)
-      request(:post, endpoint, body: body)
+      json_request(endpoint, body)
     end
 
     def get(endpoint)
-      request(:get, endpoint)
+      json_request(endpoint, nil)
     end
 
     def put(endpoint, body: nil)
-      request(:put, endpoint, body: body)
+      json_request(endpoint, body)
     end
 
-    # Streams a Server-Sent Events response, yielding each raw body chunk.
+    # Streams a Server-Sent Events response, yielding each raw body chunk for a
+    # 2xx response. Non-2xx responses raise the matching API error instead.
     def stream(endpoint, body: nil, &on_chunk)
-      http_response = send_streaming_request(endpoint, body)
-      ensure_success(http_response)
-      stream_body(http_response, &on_chunk)
+      response = perform(endpoint.method, endpoint.url) do |req|
+        req.headers = @request.headers.merge("Accept" => "text/event-stream")
+        req.body = @request.body(body) if body
+        req.options.on_data = chunk_collector(&on_chunk)
+      end
+      ensure_success(response)
     end
 
     # Uploads raw bytes to a presigned URL. These URLs carry their own auth, so
-    # this deliberately sends no fal Authorization header — only the content type.
+    # this sends no fal Authorization header — only the content type.
     def upload(url, body:, content_type:)
-      http_response = perform_upload(url, body, content_type)
-      ensure_success(http_response)
-      http_response
+      response = perform(:put, url) do |req|
+        req.headers["Content-Type"] = content_type
+        req.body = body
+      end
+      ensure_success(response)
+      response
     end
 
     private
 
-    def perform_upload(url, body, content_type)
-      @http
-        .timeout(@config.timeout)
-        .put(url, body: body, headers: { "Content-Type" => content_type })
-    rescue HTTP::Error => e
+    def json_request(endpoint, body)
+      response = perform(endpoint.method, endpoint.url) do |req|
+        req.headers = @request.headers
+        req.body = @request.body(body) if body
+      end
+      handle_response(response)
+    end
+
+    def perform(verb, url, &block)
+      @faraday.public_send(verb, url, &block)
+    rescue Faraday::Error => e
       raise ConnectionError.new("HTTP request failed: #{e.message}", original_error: e)
     end
 
-    def send_streaming_request(endpoint, body)
-      @http
-        .headers(@request.headers.merge("Accept" => "text/event-stream"))
-        .timeout(@config.timeout)
-        .public_send(endpoint.method, endpoint.url, **body_options(body))
-    rescue HTTP::Error => e
-      raise ConnectionError.new("HTTP request failed: #{e.message}", original_error: e)
+    def chunk_collector(&on_chunk)
+      proc do |chunk, _bytes, env|
+        on_chunk.call(chunk) if (200..299).cover?(env.status)
+      end
     end
 
-    def ensure_success(http_response)
-      response = Response.new(http_response)
-      raise_api_error(response) unless response.success?
+    def build_faraday
+      Faraday.new(request: { timeout: @config.timeout })
     end
 
-    def stream_body(http_response, &on_chunk)
-      http_response.body.each(&on_chunk)
-    rescue HTTP::Error => e
-      raise ConnectionError.new("HTTP stream interrupted: #{e.message}", original_error: e)
-    end
-
-    def request(verb, endpoint, body: nil)
-      handle_response(perform(verb, endpoint, body))
-    end
-
-    def perform(verb, endpoint, body)
-      @http
-        .headers(@request.headers)
-        .timeout(@config.timeout)
-        .public_send(verb, endpoint.url, **body_options(body))
-    rescue HTTP::Error => e
-      raise ConnectionError.new("HTTP request failed: #{e.message}", original_error: e)
-    end
-
-    def body_options(body)
-      body ? { body: @request.body(body) } : {}
-    end
-
-    def handle_response(http_response)
-      response = Response.new(http_response)
+    def handle_response(faraday_response)
+      response = Response.new(faraday_response)
       return response if response.success?
 
       raise_api_error(response)
+    end
+
+    def ensure_success(faraday_response)
+      response = Response.new(faraday_response)
+      raise_api_error(response) unless response.success?
     end
 
     def raise_api_error(response)
