@@ -16,7 +16,7 @@ touch the collaborators directly; you call the client (or the module-level short
 
 ```
 Fal.run/subscribe/stream/upload/queue  ->  Fal.default_client (a Fal::Client)
-Fal::Client ──> Queue ──> Connection ──> http.rb
+Fal::Client ──> Queue ──> Connection ──> Faraday
             ──> Subscriber ──> Queue
             ──> Streaming ──> Sse::Parser
             ──> Storage ──> Connection
