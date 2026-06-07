@@ -75,24 +75,23 @@ puts "Completed! Image: #{result['images'].first['url']}"
 
 ### Direct Queue Operations
 
-For more control, use queue operations directly:
+For more control, use queue operations directly. `submit` returns a
+`SubmitResponse`; `status`, `result`, and `cancel` are addressed by
+`(app_id, request_id)`:
 
 ```ruby
 client = Fal.client
 
-# Submit to queue
-request_id = client.queue.submit("fal-ai/flux/dev", {
-  prompt: "a dog playing fetch"
-})
-
-puts "Submitted: #{request_id}"
+# Submit to the queue (optionally with a webhook URL)
+submission = client.queue.submit("fal-ai/flux/dev", { prompt: "a dog playing fetch" })
+puts "Submitted: #{submission.request_id}"
 
 # Poll for status
 loop do
-  status = client.queue.status("fal-ai/flux/dev", request_id)
+  status = client.queue.status("fal-ai/flux/dev", submission.request_id)
 
   if status.completed?
-    result = client.queue.result("fal-ai/flux/dev", request_id)
+    result = client.queue.result("fal-ai/flux/dev", submission.request_id)
     puts "Done! #{result['images'].first['url']}"
     break
   end
@@ -100,6 +99,15 @@ loop do
   puts "Status: #{status.class.name}"
   sleep 1
 end
+```
+
+### Cancelling a request
+
+```ruby
+submission = client.queue.submit("fal-ai/flux/dev", { prompt: "a dog" })
+
+# Returns true once cancellation is requested, false if it's already finishing.
+client.queue.cancel("fal-ai/flux/dev", submission.request_id)
 ```
 
 ### Error Handling
