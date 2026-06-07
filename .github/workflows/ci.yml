@@ -23,8 +23,9 @@ jobs:
       matrix:
         ruby: ["3.3", "3.4", "4.0", "4.0.4"]
         include:
-          # Development build of the next Ruby — allowed to fail.
-          - ruby: "4.1.0.dev"
+          # In-development next Ruby (master, currently 4.1.0dev) — allowed to fail.
+          # setup-ruby uses "ruby-head"; "4.1.0.dev" is not a recognized version.
+          - ruby: "ruby-head"
             experimental: true
 
     steps:
