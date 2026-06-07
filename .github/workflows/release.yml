@@ -1,0 +1,32 @@
+name: Release
+
+# Publishes the gem to RubyGems when a version tag is pushed, e.g. `git tag v0.3.0 && git push --tags`.
+# Uses RubyGems trusted publishing (OIDC) — no API key secret required.
+# Configure the trusted publisher once at https://rubygems.org/gems/fal-ai/trusted_publishers.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write # create the GitHub Release
+  id-token: write # exchange an OIDC token with RubyGems
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+
+      - name: Run tests and RuboCop
+        run: bundle exec rake
+
+      - name: Build and push gem to RubyGems
+        uses: rubygems/release-gem@v1

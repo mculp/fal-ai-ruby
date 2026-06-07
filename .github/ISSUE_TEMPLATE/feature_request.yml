@@ -1,0 +1,19 @@
+name: Feature request
+description: Suggest an idea or a parity improvement
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: Describe the use case. If this matches a feature in the official fal clients, link it.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed API
+      description: Sketch the Ruby API you'd like to use.
+      render: ruby
+    validations:
+      required: false
