@@ -15,8 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- CI now tests against Ruby 3.2, 3.3, 3.4, and 4.0 and runs on every pull request.
-- `required_ruby_version` is now `>= 3.2`.
+- CI now tests against Ruby 3.3, 3.4, and 4.0 and runs on every pull request.
+- `required_ruby_version` is now `>= 3.3`.
 - `Gemfile.lock` is no longer committed (standard practice for libraries, so CI
   resolves against current dependency versions).
 
