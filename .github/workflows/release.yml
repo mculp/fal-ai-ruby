@@ -17,16 +17,22 @@ jobs:
     runs-on: ubuntu-latest
     environment: release
     steps:
-      - uses: actions/checkout@v4
+      # Actions are pinned to commit SHAs (Dependabot keeps them up to date).
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
 
       - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
+        uses: ruby/setup-ruby@afeafc3d1ab54a631816aba4c914a0081c12ff2f # v1
         with:
           ruby-version: "3.4"
-          bundler-cache: true
+          bundler-cache: false # no cached gems on the publish path
+
+      - name: Install dependencies
+        run: bundle install --jobs 1
 
       - name: Run tests and RuboCop
         run: bundle exec rake
 
       - name: Build and push gem to RubyGems
-        uses: rubygems/release-gem@v1
+        uses: rubygems/release-gem@f0d7faff26625599a847d40d9fa28ace24c2aacc # v1
