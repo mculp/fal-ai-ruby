@@ -41,8 +41,8 @@ module-level conveniences.
   4.0, where the http.rb dependency chain failed to build prebuilt binaries.
 - **Breaking:** `Queue#status` and `Queue#result` now take `(app_id, request_id)`
   instead of a raw URL — matching the official fal clients and the documented
-  README usage. The per-request URLs are constructed from the app root, so nested
-  ids such as `fal-ai/flux/schnell` resolve correctly.
+  README usage. The per-request URLs are constructed from the full endpoint id,
+  so nested ids such as `fal-ai/flux/schnell` resolve correctly.
 - **Breaking:** `SubmitResponse` now also exposes `app_id` and `cancel_url`.
 - **Breaking:** removed the internal `Endpoints::Url`; queue endpoints are built
   from `(app_id, request_id)`.
