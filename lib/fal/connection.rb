@@ -24,7 +24,50 @@ module Fal
       request(:put, endpoint, body: body)
     end
 
+    # Streams a Server-Sent Events response, yielding each raw body chunk.
+    def stream(endpoint, body: nil, &on_chunk)
+      http_response = send_streaming_request(endpoint, body)
+      ensure_success(http_response)
+      stream_body(http_response, &on_chunk)
+    end
+
+    # Uploads raw bytes to a presigned URL. These URLs carry their own auth, so
+    # this deliberately sends no fal Authorization header — only the content type.
+    def upload(url, body:, content_type:)
+      http_response = perform_upload(url, body, content_type)
+      ensure_success(http_response)
+      http_response
+    end
+
     private
+
+    def perform_upload(url, body, content_type)
+      @http
+        .timeout(@config.timeout)
+        .put(url, body: body, headers: { "Content-Type" => content_type })
+    rescue HTTP::Error => e
+      raise ConnectionError.new("HTTP request failed: #{e.message}", original_error: e)
+    end
+
+    def send_streaming_request(endpoint, body)
+      @http
+        .headers(@request.headers.merge("Accept" => "text/event-stream"))
+        .timeout(@config.timeout)
+        .public_send(endpoint.method, endpoint.url, **body_options(body))
+    rescue HTTP::Error => e
+      raise ConnectionError.new("HTTP request failed: #{e.message}", original_error: e)
+    end
+
+    def ensure_success(http_response)
+      response = Response.new(http_response)
+      raise_api_error(response) unless response.success?
+    end
+
+    def stream_body(http_response, &on_chunk)
+      http_response.body.each(&on_chunk)
+    rescue HTTP::Error => e
+      raise ConnectionError.new("HTTP stream interrupted: #{e.message}", original_error: e)
+    end
 
     def request(verb, endpoint, body: nil)
       handle_response(perform(verb, endpoint, body))

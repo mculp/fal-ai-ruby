@@ -98,6 +98,23 @@ RSpec.describe Fal::Client do
     end
   end
 
+  describe "#stream" do
+    it "streams parsed events from the run host and returns the final one" do
+      allow(connection).to receive(:stream) do |endpoint, body:, &on_chunk|
+        expect(endpoint).to be_a(Fal::Endpoints::Stream)
+        expect(body).to eq({ prompt: "p" })
+        on_chunk.call(%(data: {"progress":0.5}\n\n))
+        on_chunk.call(%(data: {"done":true}\n\n))
+      end
+
+      events = []
+      result = client.stream("fal-ai/flux", { prompt: "p" }) { |event| events << event }
+
+      expect(events).to eq([{ "progress" => 0.5 }, { "done" => true }])
+      expect(result).to eq({ "done" => true })
+    end
+  end
+
   describe "#queue" do
     it "returns a Queue instance" do
       expect(client.queue).to be_a(Fal::Queue)

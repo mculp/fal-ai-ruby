@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "webmock/rspec"
+require "stringio"
 
 RSpec.describe "Integration: real HTTP via WebMock" do
   let(:config) do
@@ -119,6 +120,22 @@ RSpec.describe "Integration: real HTTP via WebMock" do
     end
   end
 
+  describe "stream" do
+    it "consumes Server-Sent Events end to end" do
+      sse = "data: {\"progress\": 0.5}\n\n" \
+            "data: {\"images\": [{\"url\": \"https://fal.media/x.png\"}]}\n\n"
+      stub_request(:post, "https://fal.run/fal-ai/flux/dev/stream")
+        .with(headers: { "Accept" => "text/event-stream" })
+        .to_return(status: 200, body: sse, headers: { "Content-Type" => "text/event-stream" })
+
+      events = []
+      result = client.stream("fal-ai/flux/dev", { prompt: "a cat" }) { |event| events << event }
+
+      expect(events.first).to eq({ "progress" => 0.5 })
+      expect(result).to eq({ "images" => [{ "url" => "https://fal.media/x.png" }] })
+    end
+  end
+
   describe "queue.cancel" do
     it "returns true when cancellation is accepted (202)" do
       stub_request(:put, "#{queue}/fal-ai/flux/requests/req-123/cancel")
@@ -132,6 +149,26 @@ RSpec.describe "Integration: real HTTP via WebMock" do
         .to_return(status: 400, body: '{"status": "ALREADY_COMPLETED"}')
 
       expect(client.queue.cancel("fal-ai/flux/schnell", "req-123")).to be(false)
+    end
+  end
+
+  describe "storage.upload" do
+    it "initiates, PUTs the bytes, and returns the public URL" do
+      initiate = stub_request(
+        :post, "https://rest.alpha.fal.ai/storage/upload/initiate?storage_type=fal-cdn-v3"
+      ).to_return(ok(JSON.generate(
+                       "upload_url" => "https://upload.fal.example/put/xyz",
+                       "file_url" => "https://v3.fal.media/files/xyz/a.png"
+                     )))
+      put = stub_request(:put, "https://upload.fal.example/put/xyz")
+            .with(body: "PNGBYTES", headers: { "Content-Type" => "image/png" })
+            .to_return(status: 200, body: "")
+
+      url = client.upload(StringIO.new("PNGBYTES"), content_type: "image/png", file_name: "a.png")
+
+      expect(url).to eq("https://v3.fal.media/files/xyz/a.png")
+      expect(initiate).to have_been_requested
+      expect(put).to have_been_requested
     end
   end
 
