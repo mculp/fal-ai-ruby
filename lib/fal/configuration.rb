@@ -10,12 +10,13 @@ module Fal
   #   end
   class Configuration
     attr_accessor :timeout, :poll_interval
-    attr_writer :api_key
+    attr_writer :api_key, :rest_url
 
     DEFAULT_TIMEOUT = 300
     DEFAULT_POLL_INTERVAL = 0.5
     RUN_HOST = "fal.run"
     QUEUE_HOST = "queue.fal.run"
+    REST_HOST = "rest.alpha.fal.ai"
 
     def initialize
       @api_key = ENV.fetch("FAL_KEY", nil)
@@ -33,6 +34,11 @@ module Fal
 
     def queue_url
       "https://#{QUEUE_HOST}"
+    end
+
+    # Base URL for the storage/upload REST API.
+    def rest_url
+      @rest_url ||= "https://#{REST_HOST}"
     end
   end
 end

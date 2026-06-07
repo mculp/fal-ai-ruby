@@ -23,6 +23,15 @@ module Fal
       subscriber.wait_for_completion(submit_response, logs: logs, &on_queue_update)
     end
 
+    def stream(app_id, input, &on_event)
+      streaming.stream(app_id, input, &on_event)
+    end
+
+    # Uploads a local file (path or IO) to fal storage and returns its public URL.
+    def upload(file, content_type: nil, file_name: nil)
+      storage.upload(file, content_type: content_type, file_name: file_name)
+    end
+
     def queue
       @queue ||= Queue.new(connection: @connection, config: @config)
     end
@@ -35,6 +44,14 @@ module Fal
         poll_interval: @config.poll_interval,
         timeout: @config.timeout
       )
+    end
+
+    def streaming
+      @streaming ||= Streaming.new(connection: @connection, config: @config)
+    end
+
+    def storage
+      @storage ||= Storage.new(connection: @connection, config: @config)
     end
   end
 end

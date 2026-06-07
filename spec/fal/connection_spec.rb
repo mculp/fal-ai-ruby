@@ -210,4 +210,75 @@ RSpec.describe Fal::Connection do
       end
     end
   end
+
+  describe "#stream" do
+    let(:endpoint) do
+      Fal::Endpoints::Stream.new(endpoint_id: "fal-ai/flux", base_url: "https://fal.run")
+    end
+    let(:body) { double("HTTP::Response::Body") }
+    let(:http_response) { double("HTTP::Response", status: 200, body: body) }
+
+    before do
+      allow(mock_http_with_timeout).to receive(:post).and_return(http_response)
+      allow(body).to receive(:each).and_yield("data: a\n\n").and_yield("data: b\n\n")
+    end
+
+    it "yields each chunk of the streamed body" do
+      chunks = []
+      connection.stream(endpoint, body: { prompt: "x" }) { |chunk| chunks << chunk }
+
+      expect(chunks).to eq(["data: a\n\n", "data: b\n\n"])
+    end
+
+    it "requests the event-stream content type" do
+      expect(mock_http).to receive(:headers)
+        .with(hash_including("Accept" => "text/event-stream"))
+        .and_return(mock_http_with_headers)
+
+      received = []
+      connection.stream(endpoint, body: { prompt: "x" }) { |chunk| received << chunk }
+    end
+
+    it "raises an API error before streaming when the status is not 2xx" do
+      error_response = double("HTTP::Response", status: 401, body: '{"detail": "Invalid"}')
+      allow(mock_http_with_timeout).to receive(:post).and_return(error_response)
+
+      expect { connection.stream(endpoint, body: {}) }
+        .to raise_error(Fal::AuthenticationError)
+    end
+
+    it "wraps a mid-stream HTTP error as ConnectionError" do
+      allow(body).to receive(:each).and_raise(HTTP::Error.new("reset"))
+
+      expect { connection.stream(endpoint, body: {}) }
+        .to raise_error(Fal::ConnectionError)
+    end
+  end
+
+  describe "#upload" do
+    let(:http_response) { double("HTTP::Response", status: 200, body: "") }
+
+    before do
+      allow(mock_http).to receive(:timeout).and_return(mock_http_with_timeout)
+      allow(mock_http_with_timeout).to receive(:put).and_return(http_response)
+    end
+
+    it "PUTs the raw body with the content type and no fal auth header" do
+      expect(mock_http).not_to receive(:headers)
+      expect(mock_http_with_timeout).to receive(:put)
+        .with("https://upload.example/put/abc",
+              body: "raw-bytes", headers: { "Content-Type" => "image/png" })
+        .and_return(http_response)
+
+      connection.upload("https://upload.example/put/abc", body: "raw-bytes", content_type: "image/png")
+    end
+
+    it "raises an API error when the upload fails" do
+      error_response = double("HTTP::Response", status: 403, body: "Forbidden")
+      allow(mock_http_with_timeout).to receive(:put).and_return(error_response)
+
+      expect { connection.upload("https://upload.example/put/abc", body: "x", content_type: "text/plain") }
+        .to raise_error(Fal::ApiError)
+    end
+  end
 end

@@ -13,6 +13,15 @@ RSpec.describe Fal::Endpoints do
     end
   end
 
+  describe Fal::Endpoints::Stream do
+    it "POSTs the /stream path on the run host" do
+      endpoint = described_class.new(endpoint_id: "fal-ai/flux/dev", base_url: run_url)
+
+      expect(endpoint.url).to eq("https://fal.run/fal-ai/flux/dev/stream")
+      expect(endpoint.method).to eq(:post)
+    end
+  end
+
   describe Fal::Endpoints::Submit do
     it "POSTs the full endpoint id on the queue host" do
       endpoint = described_class.new(endpoint_id: "fal-ai/flux/dev", base_url: queue_url)

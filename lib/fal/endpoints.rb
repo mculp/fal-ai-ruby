@@ -18,6 +18,17 @@ module Fal
       def method = :post
     end
 
+    # POST https://fal.run/{id}/stream — streaming (Server-Sent Events) run.
+    class Stream
+      def initialize(endpoint_id:, base_url:)
+        @endpoint_id = EndpointId.coerce(endpoint_id)
+        @base_url = base_url
+      end
+
+      def url = "#{@base_url}/#{@endpoint_id}/stream"
+      def method = :post
+    end
+
     # POST https://queue.fal.run/{id}[?fal_webhook=...] — enqueue a request.
     class Submit
       def initialize(endpoint_id:, base_url:, webhook_url: nil)
@@ -74,6 +85,18 @@ module Fal
     class Cancel < QueueRequest
       def url = "#{request_url}/cancel"
       def method = :put
+    end
+
+    # POST {rest_url}/storage/upload/initiate — begins a presigned file upload.
+    class StorageInitiate
+      STORAGE_TYPE = "fal-cdn-v3"
+
+      def initialize(base_url:)
+        @base_url = base_url
+      end
+
+      def url = "#{@base_url}/storage/upload/initiate?storage_type=#{STORAGE_TYPE}"
+      def method = :post
     end
   end
 end
