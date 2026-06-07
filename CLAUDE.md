@@ -24,9 +24,9 @@ Fal::Client ──> Queue ──> Connection ──> http.rb
 
 Two hosts matter:
 - `https://fal.run/{id}` — synchronous `run`, and `…/stream` for streaming.
-- `https://queue.fal.run/{id}` — queue submit; per-request URLs live under the **app**
-  (`fal-ai/flux`, not `fal-ai/flux/schnell`). `Fal::EndpointId` handles that split — never
-  build these URLs by hand.
+- `https://queue.fal.run/{id}` — queue submit; per-request URLs are
+  `…/{id}/requests/{request_id}[/status|/cancel]` using the **full** id (the variant is
+  kept). Build them with `Fal::Endpoints::*`, never by hand.
 
 ## Choosing a method
 
@@ -87,6 +87,10 @@ client.queue.cancel("fal-ai/flux/dev", submission.request_id)
   model-specific: image models return `result["images"]`, video models `result["video"]`.
 - **`submit` returns a `Fal::SubmitResponse`** (`request_id`, `status_url`, `response_url`,
   `cancel_url`, `app_id`), not a bare id. Use `submission.request_id`.
+- **Webhooks are delivery-only — verification is the receiver's job.** Passing `webhook_url`
+  makes fal POST the result to your endpoint, but the gem does not verify fal's signature
+  (yet). Your receiver MUST validate the ED25519 `X-Fal-Webhook-Signature` header against
+  fal's JWKS (<https://rest.fal.ai/.well-known/jwks.json>) before trusting the payload.
 - **`status`/`result`/`cancel` take `(app_id, request_id)`**, not a URL. Pass the same
   `app_id` you submitted with — nested ids like `fal-ai/flux/schnell` are handled correctly.
 - **`cancel` returns a boolean**: `true` if cancellation was requested, `false` if the
@@ -112,6 +116,9 @@ client.queue.cancel("fal-ai/flux/dev", submission.request_id)
 - **Keep methods small and inject collaborators** (RuboCop enforces `Metrics/MethodLength`).
   New behavior is usually a new small object plus a require in `lib/fal.rb`.
 - **Supported Rubies:** 3.3, 3.4, 4.0 (CI matrix). Don't use APIs newer than 3.3.
+- **Deferred (parity gaps, not yet built):** webhook signature verification, realtime
+  WebSocket, multipart upload for large files, per-call `subscribe` timeout/poll overrides,
+  and queue status streaming over SSE. See the README Roadmap.
 
 ### File map
 
@@ -122,7 +129,7 @@ client.queue.cancel("fal-ai/flux/dev", submission.request_id)
 | `lib/fal/client.rb` | The facade |
 | `lib/fal/configuration.rb` | Settings + base URLs |
 | `lib/fal/connection.rb` | Faraday transport, status → typed errors |
-| `lib/fal/endpoint_id.rb` | Endpoint id parsing (run path vs queue app) |
+| `lib/fal/endpoint_id.rb` | Thin endpoint-id value object (coerce + equality) |
 | `lib/fal/endpoints.rb` | Per-endpoint URL/method value objects |
 | `lib/fal/queue.rb` | submit/status/result/cancel + `SubmitResponse` |
 | `lib/fal/subscriber.rb` | Queue polling loop |

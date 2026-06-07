@@ -179,6 +179,14 @@ the completed request to that URL:
 client.queue.submit("fal-ai/flux/dev", { prompt: "a cat" }, webhook_url: "https://your.app/fal/webhook")
 ```
 
+> **Verify the signature on your receiver.** fal POSTs results to your endpoint with no
+> credentials of yours attached, so the request is unauthenticated from your app's
+> perspective — anyone who learns the URL could forge a delivery. fal signs each webhook
+> with an ED25519 signature in the `X-Fal-Webhook-Signature` header, verifiable against
+> fal's JWKS at <https://rest.fal.ai/.well-known/jwks.json>. Until this gem ships a
+> built-in verifier (see the [Roadmap](#roadmap)), your receiver MUST verify that signature
+> itself before trusting the payload.
+
 ## Status objects
 
 Polling yields polymorphic status objects rather than raw strings, so you ask them what
@@ -227,7 +235,7 @@ read, test, and replace:
 | `Fal::Configuration` | API key, timeout, poll interval, base URLs |
 | `Fal::Connection` | HTTP transport (Faraday), status → typed errors |
 | `Fal::Endpoints::*` | URL + method value objects for each fal endpoint |
-| `Fal::EndpointId` | Parses `fal-ai/flux/schnell` into run path vs. queue app |
+| `Fal::EndpointId` | Thin value object wrapping an endpoint id (coerce + equality) |
 | `Fal::Queue` | `submit` / `status` / `result` / `cancel` |
 | `Fal::Subscriber` | Polls the queue to completion |
 | `Fal::Streaming` + `Fal::Sse::Parser` | Server-Sent Events consumption |
@@ -255,6 +263,9 @@ Out of scope for now, but on the radar:
 - Webhook signature verification helper
 - Automatic upload of file objects passed directly in model input
 - Proxy / custom-gateway routing
+- Multipart upload for large files — the current `upload` is a single PUT; the official clients chunk files above ~90 MB
+- Per-call `timeout` and `poll_interval` overrides on `subscribe` (currently only global via `Fal.configure`)
+- Queue status streaming (`queue.stream_status` / `subscribe(mode: :streaming)`) over SSE, as a lower-latency alternative to polling
 
 ## Contributing
 
