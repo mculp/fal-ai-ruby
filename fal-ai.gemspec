@@ -35,14 +35,10 @@ Gem::Specification.new do |spec|
   spec.require_paths = ["lib"]
 
   # Faraday is pure Ruby (no native extensions), so the gem installs cleanly on
-  # every supported Ruby — including brand-new releases before the ecosystem
-  # ships prebuilt binaries for C-extension HTTP libraries.
+  # every supported Ruby. http.rb was tried but its llhttp-ffi/ffi native build
+  # loses bundler's parallel-install race on Ruby 4.x (CI confirmed on 4.0,
+  # 4.0.4, and 4.1.0.dev), so the transport stays on Faraday.
   spec.add_dependency "faraday", "~> 2.0"
-
-  # Experimental: re-added to check whether http.rb's native dependency
-  # (llhttp-ffi → ffi) now installs across the Ruby 4.x matrix. If it does, the
-  # transport may move back to http.rb.
-  spec.add_dependency "http", "~> 5.0"
 
   spec.add_dependency "openssl", ">= 3.0"
 end
