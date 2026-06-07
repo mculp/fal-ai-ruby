@@ -39,4 +39,28 @@ RSpec.describe Fal::Sse::Parser do
   it "skips events that carry no data field" do
     expect(events_from("event: ping\n\ndata: real\n\n")).to eq(["real"])
   end
+
+  it "flushes a final event that has no trailing blank line" do
+    parser = described_class.new
+    collected = []
+    parser.feed("data: {\"done\":true}\n") { |d| collected << d }
+    expect(collected).to eq([])
+    parser.flush { |d| collected << d }
+    expect(collected).to eq(['{"done":true}'])
+  end
+
+  it "flushes nothing when the parser is empty" do
+    parser = described_class.new
+    collected = []
+    parser.flush { |d| collected << d }
+    expect(collected).to eq([])
+  end
+
+  it "flushes nothing when the buffer holds only a comment" do
+    parser = described_class.new
+    collected = []
+    parser.feed(": keep-alive\n") { |d| collected << d }
+    parser.flush { |d| collected << d }
+    expect(collected).to eq([])
+  end
 end

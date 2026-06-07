@@ -44,12 +44,12 @@ RSpec.describe Fal::Endpoints do
   end
 
   describe Fal::Endpoints::Status do
-    it "GETs the request status under the app, dropping the variant" do
+    it "GETs the request status under the full endpoint id" do
       endpoint = described_class.new(
         endpoint_id: "fal-ai/flux/schnell", request_id: "req-1", base_url: queue_url
       )
 
-      expect(endpoint.url).to eq("https://queue.fal.run/fal-ai/flux/requests/req-1/status")
+      expect(endpoint.url).to eq("https://queue.fal.run/fal-ai/flux/schnell/requests/req-1/status")
       expect(endpoint.method).to eq(:get)
     end
 
@@ -58,28 +58,28 @@ RSpec.describe Fal::Endpoints do
         endpoint_id: "fal-ai/flux/schnell", request_id: "req-1", base_url: queue_url, logs: true
       )
 
-      expect(endpoint.url).to eq("https://queue.fal.run/fal-ai/flux/requests/req-1/status?logs=1")
+      expect(endpoint.url).to eq("https://queue.fal.run/fal-ai/flux/schnell/requests/req-1/status?logs=1")
     end
   end
 
   describe Fal::Endpoints::Result do
-    it "GETs the request under the app" do
+    it "GETs the request under the full endpoint id" do
       endpoint = described_class.new(
         endpoint_id: "fal-ai/flux/schnell", request_id: "req-1", base_url: queue_url
       )
 
-      expect(endpoint.url).to eq("https://queue.fal.run/fal-ai/flux/requests/req-1")
+      expect(endpoint.url).to eq("https://queue.fal.run/fal-ai/flux/schnell/requests/req-1")
       expect(endpoint.method).to eq(:get)
     end
   end
 
   describe Fal::Endpoints::Cancel do
-    it "PUTs the request cancel path under the app" do
+    it "PUTs the request cancel path under the full endpoint id" do
       endpoint = described_class.new(
         endpoint_id: "fal-ai/flux/schnell", request_id: "req-1", base_url: queue_url
       )
 
-      expect(endpoint.url).to eq("https://queue.fal.run/fal-ai/flux/requests/req-1/cancel")
+      expect(endpoint.url).to eq("https://queue.fal.run/fal-ai/flux/schnell/requests/req-1/cancel")
       expect(endpoint.method).to eq(:put)
     end
   end

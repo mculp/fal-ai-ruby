@@ -38,7 +38,7 @@ module Fal
     end
 
     def error_message
-      data["detail"] || data["message"] || "Unknown error"
+      data["detail"] || data["message"] || raw_error_text || "Unknown error"
     end
 
     def to_status
@@ -51,6 +51,13 @@ module Fal
       JSON.parse(@http_response.body.to_s)
     rescue JSON::ParserError
       { "raw" => @http_response.body.to_s }
+    end
+
+    def raw_error_text
+      raw = data["raw"]
+      return if raw.nil? || raw.strip.empty?
+
+      raw.length > 500 ? "#{raw[0, 500]}…" : raw
     end
 
     def status_class

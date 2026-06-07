@@ -14,7 +14,10 @@ module Fal
 
     def stream(app_id, input, &block)
       endpoint = Endpoints::Stream.new(endpoint_id: app_id, base_url: @config.run_url)
-      collect_events(endpoint, input, &block).last
+      events = collect_events(endpoint, input, &block)
+      raise Error, "stream produced no events" if events.empty?
+
+      events.last
     end
 
     private
@@ -25,6 +28,7 @@ module Fal
       @connection.stream(endpoint, body: input) do |chunk|
         parser.feed(chunk) { |data| events << emit(data, &block) }
       end
+      parser.flush { |data| events << emit(data, &block) }
       events
     end
 

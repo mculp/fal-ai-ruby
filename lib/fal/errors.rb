@@ -21,6 +21,21 @@ module Fal
   class ApiError < Error
     attr_reader :status_code, :response_body
 
+    # Builds the most specific ApiError subclass for an HTTP status code.
+    def self.for(message, status_code:, response_body: nil)
+      class_for(status_code).new(message, status_code: status_code, response_body: response_body)
+    end
+
+    def self.class_for(status_code)
+      case status_code
+      when 401 then AuthenticationError
+      when 404 then NotFoundError
+      when 429 then RateLimitError
+      when 500..599 then ServerError
+      else self
+      end
+    end
+
     def initialize(message, status_code:, response_body: nil)
       super(message)
       @status_code = status_code

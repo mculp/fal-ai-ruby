@@ -58,7 +58,7 @@ module Fal
 
       private
 
-      def request_url = "#{@base_url}/#{@endpoint_id.app}/requests/#{@request_id}"
+      def request_url = "#{@base_url}/#{@endpoint_id}/requests/#{@request_id}"
     end
 
     # GET .../requests/{request_id}/status[?logs=1]

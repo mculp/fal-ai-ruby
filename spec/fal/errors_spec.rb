@@ -68,6 +68,26 @@ RSpec.describe Fal::ApiError do
       expect(error.response_body).to be_nil
     end
   end
+
+  describe ".for" do
+    {
+      401 => Fal::AuthenticationError,
+      404 => Fal::NotFoundError,
+      429 => Fal::RateLimitError,
+      500 => Fal::ServerError,
+      503 => Fal::ServerError,
+      418 => Fal::ApiError
+    }.each do |status, error_class|
+      it "builds a #{error_class} for status #{status}" do
+        error = Fal::ApiError.for("boom", status_code: status, response_body: { "x" => 1 })
+
+        expect(error).to be_an_instance_of(error_class)
+        expect(error.message).to eq("boom")
+        expect(error.status_code).to eq(status)
+        expect(error.response_body).to eq({ "x" => 1 })
+      end
+    end
+  end
 end
 
 RSpec.describe Fal::AuthenticationError do

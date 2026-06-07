@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "faraday"
+require "json"
 
 module Fal
   # HTTP transport built on Faraday. Faraday is pure Ruby (its default adapter is
@@ -28,12 +29,13 @@ module Fal
     # Streams a Server-Sent Events response, yielding each raw body chunk for a
     # 2xx response. Non-2xx responses raise the matching API error instead.
     def stream(endpoint, body: nil, &on_chunk)
+      error_body = +""
       response = perform(endpoint.method, endpoint.url) do |req|
         req.headers = @request.headers.merge("Accept" => "text/event-stream")
         req.body = @request.body(body) if body
-        req.options.on_data = chunk_collector(&on_chunk)
+        req.options.on_data = chunk_collector(error_body, &on_chunk)
       end
-      ensure_success(response)
+      ensure_streamed_success(response, error_body)
     end
 
     # Uploads raw bytes to a presigned URL. These URLs carry their own auth, so
@@ -44,7 +46,7 @@ module Fal
         req.body = body
       end
       ensure_success(response)
-      response
+      Response.new(response)
     end
 
     private
@@ -63,10 +65,44 @@ module Fal
       raise ConnectionError.new("HTTP request failed: #{e.message}", original_error: e)
     end
 
-    def chunk_collector(&on_chunk)
+    def chunk_collector(error_body, &on_chunk)
       proc do |chunk, _bytes, env|
-        on_chunk.call(chunk) if (200..299).cover?(env.status)
+        if (200..299).cover?(env.status.to_i)
+          on_chunk.call(chunk)
+        else
+          error_body << chunk
+        end
       end
+    end
+
+    def ensure_streamed_success(response, error_body)
+      return if response.success?
+
+      status = response.status
+      raise ApiError.for(
+        streamed_error_message(error_body, status),
+        status_code: status,
+        response_body: error_body
+      )
+    end
+
+    def streamed_error_message(error_body, status)
+      json_error_detail(error_body) ||
+        presence(error_body) ||
+        "Request failed with status #{status}"
+    end
+
+    def json_error_detail(error_body)
+      return if error_body.to_s.empty?
+
+      parsed = JSON.parse(error_body)
+      parsed["detail"] || parsed["message"]
+    rescue JSON::ParserError
+      nil
+    end
+
+    def presence(string)
+      string unless string.to_s.strip.empty?
     end
 
     def build_faraday
@@ -86,22 +122,11 @@ module Fal
     end
 
     def raise_api_error(response)
-      error_class = error_class_for(response.status_code)
-      raise error_class.new(
+      raise ApiError.for(
         response.error_message,
         status_code: response.status_code,
         response_body: response.data
       )
-    end
-
-    def error_class_for(status_code)
-      case status_code
-      when 401 then AuthenticationError
-      when 404 then NotFoundError
-      when 429 then RateLimitError
-      when 500..599 then ServerError
-      else ApiError
-      end
     end
   end
 end

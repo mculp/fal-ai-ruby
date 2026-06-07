@@ -16,7 +16,7 @@ module Fal
     DEFAULT_POLL_INTERVAL = 0.5
     RUN_HOST = "fal.run"
     QUEUE_HOST = "queue.fal.run"
-    REST_HOST = "rest.alpha.fal.ai"
+    REST_HOST = "rest.fal.ai"
 
     def initialize
       @api_key = ENV.fetch("FAL_KEY", nil)
