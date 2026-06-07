@@ -61,8 +61,10 @@ module Fal
     end
 
     def require_request_id(response)
-      response.request_id ||
-        raise(Error, "fal queue response did not include a request_id")
+      request_id = response.request_id
+      raise(Error, "fal queue response did not include a request_id") if request_id.nil?
+
+      request_id
     end
   end
 
