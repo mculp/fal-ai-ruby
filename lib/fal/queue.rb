@@ -68,8 +68,9 @@ module Fal
     end
   end
 
-  # Value object returned by {Queue#submit}. Carries the request id plus the
-  # status, response, and cancel URLs the API returned.
+  # Value object returned by {Queue#submit}. The gem builds its own per-request
+  # URLs from (app_id, request_id), so status_url/response_url/cancel_url are
+  # carried for transparency only and may be nil if the API ever omits them.
   SubmitResponse = Struct.new(
     :app_id, :request_id, :status_url, :response_url, :cancel_url, keyword_init: true
   )

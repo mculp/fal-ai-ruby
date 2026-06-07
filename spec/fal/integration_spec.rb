@@ -119,6 +119,27 @@ RSpec.describe "Integration: real HTTP via WebMock" do
     end
   end
 
+  describe "subscribe polling progression" do
+    it "yields each status in order while polling to completion" do
+      stub_request(:post, "#{queue}/fal-ai/flux/schnell")
+        .to_return(ok(submit_body(request_id: "req-poll", id: "fal-ai/flux/schnell")))
+      stub_request(:get, "#{queue}/fal-ai/flux/schnell/requests/req-poll/status")
+        .to_return(
+          ok('{"status": "IN_QUEUE", "queue_position": 2}'),
+          ok('{"status": "IN_PROGRESS"}'),
+          ok('{"status": "COMPLETED"}')
+        )
+      stub_request(:get, "#{queue}/fal-ai/flux/schnell/requests/req-poll")
+        .to_return(ok('{"images": []}'))
+
+      statuses = []
+      client.subscribe("fal-ai/flux/schnell", { prompt: "a cat" }) { |s| statuses << s }
+
+      expect(statuses.map(&:class))
+        .to eq([Fal::Status::Queued, Fal::Status::InProgress, Fal::Status::Completed])
+    end
+  end
+
   describe "stream" do
     it "consumes Server-Sent Events end to end" do
       sse = "data: {\"progress\": 0.5}\n\n" \
