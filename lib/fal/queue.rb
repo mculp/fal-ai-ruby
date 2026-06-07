@@ -4,9 +4,9 @@ module Fal
   # Queue operations: submit, status, result, cancel.
   #
   # Status, result, and cancel are addressed by (app_id, request_id) — the same
-  # ergonomics as the official fal clients. The per-request URLs are built from
-  # the app root (via {EndpointId}), so nested ids like "fal-ai/flux/schnell"
-  # resolve to the correct "fal-ai/flux/requests/..." path.
+  # ergonomics as the official fal clients. The per-request URLs use the full
+  # endpoint id, so a nested id like "fal-ai/flux/schnell" is polled at
+  # "fal-ai/flux/schnell/requests/...".
   class Queue
     def initialize(connection:, config:)
       @connection = connection
