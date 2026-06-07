@@ -66,7 +66,7 @@ RSpec.describe Fal::Connection do
 
   describe "#get" do
     it "GETs the endpoint URL and returns a Response" do
-      stub = stub_request(:get, "https://queue.fal.run/fal-ai/flux/requests/abc-123/status")
+      stub = stub_request(:get, "https://queue.fal.run/fal-ai/flux/schnell/requests/abc-123/status")
              .to_return(status: 200, body: '{"status":"COMPLETED"}')
 
       expect(connection.get(status_endpoint)).to be_a(Fal::Response)
@@ -82,7 +82,7 @@ RSpec.describe Fal::Connection do
     end
 
     it "PUTs the endpoint URL and returns a Response" do
-      stub = stub_request(:put, "https://queue.fal.run/fal-ai/flux/requests/abc-123/cancel")
+      stub = stub_request(:put, "https://queue.fal.run/fal-ai/flux/schnell/requests/abc-123/cancel")
              .to_return(status: 202, body: '{"status":"CANCELLATION_REQUESTED"}')
 
       expect(connection.put(cancel_endpoint)).to be_a(Fal::Response)
@@ -106,13 +106,13 @@ RSpec.describe Fal::Connection do
       expect(chunks.join).to eq("data: a\n\ndata: b\n\n")
     end
 
-    it "raises without yielding on a non-2xx status" do
+    it "raises without yielding on a non-2xx status, surfacing the server detail" do
       stub_request(:post, "https://fal.run/fal-ai/flux/stream")
-        .to_return(status: 401, body: '{"detail":"no"}')
+        .to_return(status: 401, body: '{"detail":"bad key"}')
 
       yielded = []
       expect { connection.stream(stream_endpoint, body: {}) { |chunk| yielded << chunk } }
-        .to raise_error(Fal::AuthenticationError)
+        .to raise_error(Fal::AuthenticationError, /bad key/)
       expect(yielded).to be_empty
     end
   end

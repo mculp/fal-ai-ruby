@@ -33,7 +33,7 @@ RSpec.describe Fal::Storage do
     expect(connection).to receive(:post) do |endpoint, body:|
       expect(endpoint).to be_a(Fal::Endpoints::StorageInitiate)
       expect(endpoint.url)
-        .to eq("https://rest.alpha.fal.ai/storage/upload/initiate?storage_type=fal-cdn-v3")
+        .to eq("https://rest.fal.ai/storage/upload/initiate?storage_type=fal-cdn-v3")
       expect(body).to eq({ content_type: "image/png", file_name: "logo.png" })
     end.and_return(initiate_response)
 

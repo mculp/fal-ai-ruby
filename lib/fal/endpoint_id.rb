@@ -3,15 +3,11 @@
 module Fal
   # A model endpoint id, e.g. "fal-ai/flux/schnell".
   #
-  # The full id addresses synchronous run, queue submit, and streaming. The
-  # queue's per-request URLs, however, live under the *application* — the owner
-  # and alias only — so "fal-ai/flux/schnell" submits under the full path but is
-  # polled under "fal-ai/flux". {#app} encapsulates that distinction so the rest
-  # of the gem never splits endpoint strings by hand.
+  # A thin value wrapper around an endpoint id string. It exists so callers can
+  # pass either a String or an EndpointId interchangeably; the full id addresses
+  # every fal route (synchronous run, streaming, queue submit, and the queue's
+  # per-request status/result/cancel URLs alike).
   class EndpointId
-    # Namespaces whose application path keeps a third (namespace) segment.
-    NAMESPACES = %w[workflows comfy].freeze
-
     def self.coerce(value)
       value.is_a?(self) ? value : new(value)
     end
@@ -22,13 +18,6 @@ module Fal
 
     attr_reader :id
     alias to_s id
-
-    # The queue application path: owner/alias, prefixed by a namespace if present.
-    def app
-      segments = id.split("/")
-      app_segment_count = NAMESPACES.include?(segments.first) ? 3 : 2
-      segments.take(app_segment_count).join("/")
-    end
 
     def ==(other)
       other.is_a?(EndpointId) && other.id == id

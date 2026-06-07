@@ -133,6 +133,17 @@ RSpec.describe Fal::Response do
         expect(response.error_message).to eq("Unknown error")
       end
     end
+
+    context "with a non-JSON error body" do
+      let(:status_code) { 502 }
+      let(:body) { "502 Bad Gateway" }
+
+      it "returns the raw body text instead of unknown error" do
+        response = Fal::Response.new(http_response)
+
+        expect(response.error_message).to eq("502 Bad Gateway")
+      end
+    end
   end
 
   describe "#to_status" do

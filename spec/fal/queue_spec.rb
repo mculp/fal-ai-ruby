@@ -14,9 +14,9 @@ RSpec.describe Fal::Queue do
       instance_double(
         Fal::Response,
         request_id: "req-123",
-        status_url: "https://queue.fal.run/fal-ai/flux/requests/req-123/status",
-        response_url: "https://queue.fal.run/fal-ai/flux/requests/req-123",
-        cancel_url: "https://queue.fal.run/fal-ai/flux/requests/req-123/cancel"
+        status_url: "https://queue.fal.run/fal-ai/flux/schnell/requests/req-123/status",
+        response_url: "https://queue.fal.run/fal-ai/flux/schnell/requests/req-123",
+        cancel_url: "https://queue.fal.run/fal-ai/flux/schnell/requests/req-123/cancel"
       )
     end
 
@@ -28,9 +28,9 @@ RSpec.describe Fal::Queue do
       expect(result).to be_a(Fal::SubmitResponse)
       expect(result.app_id).to eq("fal-ai/flux/schnell")
       expect(result.request_id).to eq("req-123")
-      expect(result.status_url).to eq("https://queue.fal.run/fal-ai/flux/requests/req-123/status")
-      expect(result.response_url).to eq("https://queue.fal.run/fal-ai/flux/requests/req-123")
-      expect(result.cancel_url).to eq("https://queue.fal.run/fal-ai/flux/requests/req-123/cancel")
+      expect(result.status_url).to eq("https://queue.fal.run/fal-ai/flux/schnell/requests/req-123/status")
+      expect(result.response_url).to eq("https://queue.fal.run/fal-ai/flux/schnell/requests/req-123")
+      expect(result.cancel_url).to eq("https://queue.fal.run/fal-ai/flux/schnell/requests/req-123/cancel")
     end
 
     it "posts to the submit endpoint with the input" do
@@ -71,7 +71,7 @@ RSpec.describe Fal::Queue do
     it "GETs the status endpoint built from the app and request id" do
       expect(connection).to receive(:get) do |endpoint|
         expect(endpoint).to be_a(Fal::Endpoints::Status)
-        expect(endpoint.url).to eq("https://queue.fal.run/fal-ai/flux/requests/req-123/status")
+        expect(endpoint.url).to eq("https://queue.fal.run/fal-ai/flux/schnell/requests/req-123/status")
       end.and_return(response)
 
       queue.status("fal-ai/flux/schnell", "req-123")
@@ -99,7 +99,7 @@ RSpec.describe Fal::Queue do
     it "GETs the result endpoint built from the app and request id" do
       expect(connection).to receive(:get) do |endpoint|
         expect(endpoint).to be_a(Fal::Endpoints::Result)
-        expect(endpoint.url).to eq("https://queue.fal.run/fal-ai/flux/requests/req-123")
+        expect(endpoint.url).to eq("https://queue.fal.run/fal-ai/flux/schnell/requests/req-123")
       end.and_return(response)
 
       queue.result("fal-ai/flux/schnell", "req-123")
@@ -110,7 +110,7 @@ RSpec.describe Fal::Queue do
     it "PUTs the cancel endpoint and returns true on success" do
       expect(connection).to receive(:put) do |endpoint|
         expect(endpoint).to be_a(Fal::Endpoints::Cancel)
-        expect(endpoint.url).to eq("https://queue.fal.run/fal-ai/flux/requests/req-123/cancel")
+        expect(endpoint.url).to eq("https://queue.fal.run/fal-ai/flux/schnell/requests/req-123/cancel")
       end.and_return(instance_double(Fal::Response))
 
       expect(queue.cancel("fal-ai/flux/schnell", "req-123")).to be(true)

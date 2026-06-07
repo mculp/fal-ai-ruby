@@ -7,31 +7,6 @@ RSpec.describe Fal::EndpointId do
     end
   end
 
-  describe "#app (the queue application path)" do
-    it "is the full id when there is no variant" do
-      expect(described_class.new("fal-ai/fast-sdxl").app).to eq("fal-ai/fast-sdxl")
-    end
-
-    it "drops the variant suffix" do
-      # The queue is per-app: fal-ai/flux/schnell submits under the full path but
-      # its request URLs live under fal-ai/flux.
-      expect(described_class.new("fal-ai/flux/schnell").app).to eq("fal-ai/flux")
-    end
-
-    it "drops a deeply nested variant" do
-      id = "fal-ai/kling-video/v1.5/pro/image-to-video"
-      expect(described_class.new(id).app).to eq("fal-ai/kling-video")
-    end
-
-    it "keeps three segments for the comfy namespace" do
-      expect(described_class.new("comfy/fal-ai/flux").app).to eq("comfy/fal-ai/flux")
-    end
-
-    it "keeps three segments for the workflows namespace" do
-      expect(described_class.new("workflows/me/my-flow/run").app).to eq("workflows/me/my-flow")
-    end
-  end
-
   describe ".coerce" do
     it "returns an EndpointId untouched" do
       id = described_class.new("fal-ai/flux")

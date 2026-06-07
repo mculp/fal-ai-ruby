@@ -19,14 +19,14 @@ RSpec.describe "Integration: real HTTP via WebMock" do
     "https://queue.fal.run"
   end
 
-  # The queue endpoint returns status/response/cancel URLs rooted at the app
-  # (e.g. "fal-ai/flux"), not the full variant path ("fal-ai/flux/schnell").
-  def submit_body(request_id:, app:)
+  # The queue addresses every per-request URL by the FULL endpoint id, including
+  # the variant (e.g. "fal-ai/flux/schnell"), matching the official fal clients.
+  def submit_body(request_id:, id:)
     JSON.generate(
       "request_id" => request_id,
-      "status_url" => "#{queue}/#{app}/requests/#{request_id}/status",
-      "response_url" => "#{queue}/#{app}/requests/#{request_id}",
-      "cancel_url" => "#{queue}/#{app}/requests/#{request_id}/cancel",
+      "status_url" => "#{queue}/#{id}/requests/#{request_id}/status",
+      "response_url" => "#{queue}/#{id}/requests/#{request_id}",
+      "cancel_url" => "#{queue}/#{id}/requests/#{request_id}/cancel",
       "status" => "IN_QUEUE"
     )
   end
@@ -35,21 +35,20 @@ RSpec.describe "Integration: real HTTP via WebMock" do
     { status: 200, body: body, headers: { "Content-Type" => "application/json" } }
   end
 
-  describe "nested model ids resolve to the app-rooted request path" do
-    # The queue is per-app: a nested id like fal-ai/flux/schnell submits under the
-    # full path but is polled under fal-ai/flux. EndpointId encapsulates that, and
-    # these end-to-end stubs prove the URLs the gem constructs match the server's:
+  describe "nested model ids keep the full id in request URLs" do
+    # A nested id like fal-ai/flux/schnell submits AND polls under the full path.
+    # These end-to-end stubs prove the URLs the gem constructs match the server's:
     #
     # Submit:  POST https://queue.fal.run/fal-ai/flux/schnell
-    # Status:  GET  https://queue.fal.run/fal-ai/flux/requests/{id}/status
-    # Result:  GET  https://queue.fal.run/fal-ai/flux/requests/{id}
+    # Status:  GET  https://queue.fal.run/fal-ai/flux/schnell/requests/{id}/status
+    # Result:  GET  https://queue.fal.run/fal-ai/flux/schnell/requests/{id}
 
-    it "polls a nested model id under its app" do
+    it "polls a nested model id under its full id" do
       stub_request(:post, "#{queue}/fal-ai/flux/schnell")
-        .to_return(ok(submit_body(request_id: "req-789", app: "fal-ai/flux")))
-      stub_request(:get, "#{queue}/fal-ai/flux/requests/req-789/status")
+        .to_return(ok(submit_body(request_id: "req-789", id: "fal-ai/flux/schnell")))
+      stub_request(:get, "#{queue}/fal-ai/flux/schnell/requests/req-789/status")
         .to_return(ok('{"status": "COMPLETED"}'))
-      stub_request(:get, "#{queue}/fal-ai/flux/requests/req-789")
+      stub_request(:get, "#{queue}/fal-ai/flux/schnell/requests/req-789")
         .to_return(ok('{"images": [{"url": "https://fal.media/test.png"}]}'))
 
       result = client.subscribe("fal-ai/flux/schnell", { prompt: "a cat" })
@@ -57,13 +56,13 @@ RSpec.describe "Integration: real HTTP via WebMock" do
       expect(result).to eq({ "images" => [{ "url" => "https://fal.media/test.png" }] })
     end
 
-    it "polls a deeply nested model id under its app" do
+    it "polls a deeply nested model id under its full id" do
       app_id = "fal-ai/kling-video/v1.5/pro/image-to-video"
       stub_request(:post, "#{queue}/#{app_id}")
-        .to_return(ok(submit_body(request_id: "req-deep", app: "fal-ai/kling-video")))
-      stub_request(:get, "#{queue}/fal-ai/kling-video/requests/req-deep/status")
+        .to_return(ok(submit_body(request_id: "req-deep", id: app_id)))
+      stub_request(:get, "#{queue}/#{app_id}/requests/req-deep/status")
         .to_return(ok('{"status": "COMPLETED"}'))
-      stub_request(:get, "#{queue}/fal-ai/kling-video/requests/req-deep")
+      stub_request(:get, "#{queue}/#{app_id}/requests/req-deep")
         .to_return(ok('{"video": {"url": "https://fal.media/video.mp4"}}'))
 
       result = client.subscribe(app_id, { image_url: "https://example.com/img.png" })
@@ -75,21 +74,21 @@ RSpec.describe "Integration: real HTTP via WebMock" do
   describe "queue.submit" do
     it "returns a SubmitResponse with URLs from the API" do
       stub_request(:post, "#{queue}/fal-ai/flux/schnell")
-        .to_return(ok(submit_body(request_id: "req-456", app: "fal-ai/flux")))
+        .to_return(ok(submit_body(request_id: "req-456", id: "fal-ai/flux/schnell")))
 
       submit_response = client.queue.submit("fal-ai/flux/schnell", { prompt: "a cat" })
 
       expect(submit_response).to be_a(Fal::SubmitResponse)
       expect(submit_response.request_id).to eq("req-456")
-      expect(submit_response.status_url).to eq("#{queue}/fal-ai/flux/requests/req-456/status")
-      expect(submit_response.cancel_url).to eq("#{queue}/fal-ai/flux/requests/req-456/cancel")
+      expect(submit_response.status_url).to eq("#{queue}/fal-ai/flux/schnell/requests/req-456/status")
+      expect(submit_response.cancel_url).to eq("#{queue}/fal-ai/flux/schnell/requests/req-456/cancel")
     end
 
     it "attaches a webhook URL as a query parameter" do
       hook = "https://example.com/fal-hook"
       stubbed = stub_request(:post, "#{queue}/fal-ai/flux/schnell")
                 .with(query: { "fal_webhook" => hook })
-                .to_return(ok(submit_body(request_id: "req-1", app: "fal-ai/flux")))
+                .to_return(ok(submit_body(request_id: "req-1", id: "fal-ai/flux/schnell")))
 
       client.queue.submit("fal-ai/flux/schnell", { prompt: "a cat" }, webhook_url: hook)
 
@@ -99,7 +98,7 @@ RSpec.describe "Integration: real HTTP via WebMock" do
 
   describe "queue.status" do
     it "fetches the status for an app id and request id" do
-      stub_request(:get, "#{queue}/fal-ai/flux/requests/req-123/status")
+      stub_request(:get, "#{queue}/fal-ai/flux/schnell/requests/req-123/status")
         .to_return(ok('{"status": "IN_QUEUE", "queue_position": 3}'))
 
       status = client.queue.status("fal-ai/flux/schnell", "req-123")
@@ -111,7 +110,7 @@ RSpec.describe "Integration: real HTTP via WebMock" do
 
   describe "queue.result" do
     it "fetches the result for an app id and request id" do
-      stub_request(:get, "#{queue}/fal-ai/flux/requests/req-123")
+      stub_request(:get, "#{queue}/fal-ai/flux/schnell/requests/req-123")
         .to_return(ok('{"images": [{"url": "https://example.com/image.png"}]}'))
 
       result = client.queue.result("fal-ai/flux/schnell", "req-123")
@@ -138,14 +137,14 @@ RSpec.describe "Integration: real HTTP via WebMock" do
 
   describe "queue.cancel" do
     it "returns true when cancellation is accepted (202)" do
-      stub_request(:put, "#{queue}/fal-ai/flux/requests/req-123/cancel")
+      stub_request(:put, "#{queue}/fal-ai/flux/schnell/requests/req-123/cancel")
         .to_return(status: 202, body: '{"status": "CANCELLATION_REQUESTED"}')
 
       expect(client.queue.cancel("fal-ai/flux/schnell", "req-123")).to be(true)
     end
 
     it "returns false when the request is already finished (400)" do
-      stub_request(:put, "#{queue}/fal-ai/flux/requests/req-123/cancel")
+      stub_request(:put, "#{queue}/fal-ai/flux/schnell/requests/req-123/cancel")
         .to_return(status: 400, body: '{"status": "ALREADY_COMPLETED"}')
 
       expect(client.queue.cancel("fal-ai/flux/schnell", "req-123")).to be(false)
@@ -155,7 +154,7 @@ RSpec.describe "Integration: real HTTP via WebMock" do
   describe "storage.upload" do
     it "initiates, PUTs the bytes, and returns the public URL" do
       initiate = stub_request(
-        :post, "https://rest.alpha.fal.ai/storage/upload/initiate?storage_type=fal-cdn-v3"
+        :post, "https://rest.fal.ai/storage/upload/initiate?storage_type=fal-cdn-v3"
       ).to_return(ok(JSON.generate(
                        "upload_url" => "https://upload.fal.example/put/xyz",
                        "file_url" => "https://v3.fal.media/files/xyz/a.png"
@@ -174,7 +173,7 @@ RSpec.describe "Integration: real HTTP via WebMock" do
 
   describe "error handling" do
     def stub_status(status:, body:)
-      stub_request(:get, "#{queue}/fal-ai/flux/requests/req-123/status")
+      stub_request(:get, "#{queue}/fal-ai/flux/schnell/requests/req-123/status")
         .to_return(status: status, body: body)
     end
 
@@ -193,7 +192,7 @@ RSpec.describe "Integration: real HTTP via WebMock" do
     end
 
     it "raises ConnectionError on network timeout" do
-      stub_request(:get, "#{queue}/fal-ai/flux/requests/req-123/status").to_timeout
+      stub_request(:get, "#{queue}/fal-ai/flux/schnell/requests/req-123/status").to_timeout
 
       expect { client.queue.status("fal-ai/flux/schnell", "req-123") }
         .to raise_error(Fal::ConnectionError, /HTTP request failed/)
