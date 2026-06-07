@@ -22,7 +22,7 @@ RSpec.describe Fal::Connection do
 
   describe "#post" do
     let(:endpoint) do
-      Fal::Endpoints::Run.new(app_id: "fal-ai/flux", base_url: "https://fal.run")
+      Fal::Endpoints::Run.new(endpoint_id: "fal-ai/flux", base_url: "https://fal.run")
     end
 
     context "with successful response" do
@@ -46,9 +46,9 @@ RSpec.describe Fal::Connection do
         connection.post(endpoint, body: { prompt: "a cat" })
       end
 
-      it "handles nil body" do
+      it "omits the body when none is given" do
         expect(mock_http_with_timeout).to receive(:post)
-          .with("https://fal.run/fal-ai/flux", body: nil)
+          .with("https://fal.run/fal-ai/flux")
           .and_return(http_response)
 
         connection.post(endpoint, body: nil)
@@ -129,8 +129,8 @@ RSpec.describe Fal::Connection do
 
   describe "#get" do
     let(:endpoint) do
-      Fal::Endpoints::Url.new(
-        url: "https://queue.fal.run/fal-ai/flux/requests/abc-123/status"
+      Fal::Endpoints::Status.new(
+        endpoint_id: "fal-ai/flux/schnell", request_id: "abc-123", base_url: "https://queue.fal.run"
       )
     end
 
@@ -164,6 +164,48 @@ RSpec.describe Fal::Connection do
 
       it "raises ConnectionError" do
         expect { connection.get(endpoint) }
+          .to raise_error(Fal::ConnectionError)
+      end
+    end
+  end
+
+  describe "#put" do
+    let(:endpoint) do
+      Fal::Endpoints::Cancel.new(
+        endpoint_id: "fal-ai/flux/schnell", request_id: "abc-123", base_url: "https://queue.fal.run"
+      )
+    end
+
+    context "with successful response" do
+      let(:http_response) do
+        double("HTTP::Response", status: 202, body: '{"status": "CANCELLATION_REQUESTED"}')
+      end
+
+      before do
+        allow(mock_http_with_timeout).to receive(:put).and_return(http_response)
+      end
+
+      it "returns a Response object" do
+        expect(connection.put(endpoint)).to be_a(Fal::Response)
+      end
+
+      it "sends a PUT to the endpoint URL" do
+        expect(mock_http_with_timeout).to receive(:put)
+          .with("https://queue.fal.run/fal-ai/flux/requests/abc-123/cancel")
+          .and_return(http_response)
+
+        connection.put(endpoint)
+      end
+    end
+
+    context "with HTTP error" do
+      before do
+        allow(mock_http_with_timeout).to receive(:put)
+          .and_raise(HTTP::Error.new("Connection refused"))
+      end
+
+      it "raises ConnectionError" do
+        expect { connection.put(endpoint) }
           .to raise_error(Fal::ConnectionError)
       end
     end

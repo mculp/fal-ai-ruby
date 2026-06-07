@@ -60,7 +60,8 @@ RSpec.describe Fal::Client do
         Fal::Response,
         request_id: "req-123",
         status_url: "https://queue.fal.run/fal-ai/flux/requests/req-123/status",
-        response_url: "https://queue.fal.run/fal-ai/flux/requests/req-123"
+        response_url: "https://queue.fal.run/fal-ai/flux/requests/req-123",
+        cancel_url: "https://queue.fal.run/fal-ai/flux/requests/req-123/cancel"
       )
     end
     let(:queued_status) { Fal::Status::Queued.new({ "status" => "IN_QUEUE", "queue_position" => 1 }) }
@@ -113,7 +114,8 @@ RSpec.describe Fal::Client do
         Fal::Response,
         request_id: "req-123",
         status_url: "https://queue.fal.run/fal-ai/flux/requests/req-123/status",
-        response_url: "https://queue.fal.run/fal-ai/flux/requests/req-123"
+        response_url: "https://queue.fal.run/fal-ai/flux/requests/req-123",
+        cancel_url: "https://queue.fal.run/fal-ai/flux/requests/req-123/cancel"
       )
 
       expect(connection).to receive(:post).and_return(result_response)
