@@ -21,7 +21,7 @@ object-oriented design that should feel at home to Ruby developers.
 - **`upload`** — push local files to fal storage and get back URLs for image-to-image and image-to-video.
 - **Webhooks** — deliver results to your own endpoint asynchronously.
 - **Typed errors** and **polymorphic status objects** — no string-matching on responses.
-- **Dependency-injected** HTTP layer (built on [http.rb](https://github.com/httprb/http)) — trivial to test.
+- **Dependency-injected** HTTP layer (built on [Faraday](https://github.com/lostisland/faraday), pure Ruby — no native extensions) — trivial to test.
 
 ## Installation
 
@@ -225,7 +225,7 @@ read, test, and replace:
 |--------|----------------|
 | `Fal::Client` | Public facade: `run`, `subscribe`, `stream`, `upload`, `queue` |
 | `Fal::Configuration` | API key, timeout, poll interval, base URLs |
-| `Fal::Connection` | HTTP transport (http.rb), status → typed errors |
+| `Fal::Connection` | HTTP transport (Faraday), status → typed errors |
 | `Fal::Endpoints::*` | URL + method value objects for each fal endpoint |
 | `Fal::EndpointId` | Parses `fal-ai/flux/schnell` into run path vs. queue app |
 | `Fal::Queue` | `submit` / `status` / `result` / `cancel` |

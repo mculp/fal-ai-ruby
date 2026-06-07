@@ -107,7 +107,7 @@ client.queue.cancel("fal-ai/flux/dev", submission.request_id)
 - **TDD is required.** Write a failing spec, watch it fail, then implement. Each object has
   a spec under `spec/fal/`.
 - **Run checks:** `bundle exec rake` (RSpec + RuboCop). Tests use WebMock; no live calls.
-- **HTTP goes through `Fal::Connection`** (http.rb) — never use `Net::HTTP` directly, and
+- **HTTP goes through `Fal::Connection`** (Faraday) — never use `Net::HTTP` directly, and
   never hand-build fal URLs (use `Fal::Endpoints::*` + `Fal::EndpointId`).
 - **Keep methods small and inject collaborators** (RuboCop enforces `Metrics/MethodLength`).
   New behavior is usually a new small object plus a require in `lib/fal.rb`.
@@ -121,7 +121,7 @@ client.queue.cancel("fal-ai/flux/dev", submission.request_id)
 | `lib/fal-ai.rb` | Gem-name entrypoint (`require "fal-ai"`) → loads `fal` |
 | `lib/fal/client.rb` | The facade |
 | `lib/fal/configuration.rb` | Settings + base URLs |
-| `lib/fal/connection.rb` | http.rb transport, status → typed errors |
+| `lib/fal/connection.rb` | Faraday transport, status → typed errors |
 | `lib/fal/endpoint_id.rb` | Endpoint id parsing (run path vs queue app) |
 | `lib/fal/endpoints.rb` | Per-endpoint URL/method value objects |
 | `lib/fal/queue.rb` | submit/status/result/cancel + `SubmitResponse` |

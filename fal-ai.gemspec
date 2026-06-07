@@ -34,5 +34,8 @@ Gem::Specification.new do |spec|
   spec.executables = spec.files.grep(%r{\Aexe/}) { |f| File.basename(f) }
   spec.require_paths = ["lib"]
 
-  spec.add_dependency "http", "~> 5.0"
+  # Faraday is pure Ruby (no native extensions), so the gem installs cleanly on
+  # every supported Ruby — including brand-new releases before the ecosystem
+  # ships prebuilt binaries for C-extension HTTP libraries.
+  spec.add_dependency "faraday", "~> 2.0"
 end

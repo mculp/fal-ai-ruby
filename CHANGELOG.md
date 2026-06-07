@@ -36,26 +36,9 @@ module-level conveniences.
 
 ### Changed
 
-- **Breaking:** `Queue#status` and `Queue#result` now take `(app_id, request_id)`
-  instead of a raw URL — matching the official fal clients and the documented
-  README usage. The per-request URLs are constructed from the app root, so nested
-  ids such as `fal-ai/flux/schnell` resolve correctly.
-- **Breaking:** `SubmitResponse` now also exposes `app_id` and `cancel_url`.
-- **Breaking:** removed the internal `Endpoints::Url`; queue endpoints are built
-  from `(app_id, request_id)`.
-- CI now tests against Ruby 3.3, 3.4, and 4.0 and runs on every pull request.
-- `required_ruby_version` is now `>= 3.3`.
-- `Gemfile.lock` is no longer committed (standard practice for libraries, so CI
-  resolves against current dependency versions).
-
-### Fixed
-
-- `require "fal-ai"` now works. Previously the gem only defined `lib/fal.rb`, so
-  `require "fal-ai"` (what the README documents and what Bundler auto-requires for
-  `gem "fal-ai"`) raised `LoadError`.
-
-### Changed
-
+- Switched the HTTP transport from http.rb to **Faraday** (pure Ruby, no native
+  extensions), so the gem installs cleanly on every supported Ruby — including
+  4.0, where the http.rb dependency chain failed to build prebuilt binaries.
 - **Breaking:** `Queue#status` and `Queue#result` now take `(app_id, request_id)`
   instead of a raw URL — matching the official fal clients and the documented
   README usage. The per-request URLs are constructed from the app root, so nested
