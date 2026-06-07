@@ -48,7 +48,7 @@ module Fal
     end
 
     # Base for the queue's per-request endpoints, which all live under
-    # https://queue.fal.run/{app}/requests/{request_id}.
+    # https://queue.fal.run/{id}/requests/{request_id} (the full endpoint id).
     class QueueRequest
       def initialize(endpoint_id:, request_id:, base_url:)
         @endpoint_id = EndpointId.coerce(endpoint_id)

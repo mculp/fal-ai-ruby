@@ -65,6 +65,10 @@ module Fal
       raise ConnectionError.new("HTTP request failed: #{e.message}", original_error: e)
     end
 
+    # The net/http adapter populates env.status before it streams the body, so
+    # the 2xx check is reliable: success chunks go to the caller, error chunks
+    # are buffered for the message. (#to_i keeps a nil status — only possible on
+    # an unusual adapter — out of the 2xx range rather than raising.)
     def chunk_collector(error_body, &on_chunk)
       proc do |chunk, _bytes, env|
         if (200..299).cover?(env.status.to_i)

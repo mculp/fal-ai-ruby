@@ -15,9 +15,9 @@ RSpec.describe Fal::Subscriber do
       Fal::SubmitResponse.new(
         app_id: "fal-ai/flux/schnell",
         request_id: "req-123",
-        status_url: "https://queue.fal.run/fal-ai/flux/requests/req-123/status",
-        response_url: "https://queue.fal.run/fal-ai/flux/requests/req-123",
-        cancel_url: "https://queue.fal.run/fal-ai/flux/requests/req-123/cancel"
+        status_url: "https://queue.fal.run/fal-ai/flux/schnell/requests/req-123/status",
+        response_url: "https://queue.fal.run/fal-ai/flux/schnell/requests/req-123",
+        cancel_url: "https://queue.fal.run/fal-ai/flux/schnell/requests/req-123/cancel"
       )
     end
     let(:result_data) { { "images" => [{ "url" => "https://example.com/image.png" }] } }
