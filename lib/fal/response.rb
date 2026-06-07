@@ -33,6 +33,10 @@ module Fal
       data["response_url"]
     end
 
+    def cancel_url
+      data["cancel_url"]
+    end
+
     def error_message
       data["detail"] || data["message"] || "Unknown error"
     end

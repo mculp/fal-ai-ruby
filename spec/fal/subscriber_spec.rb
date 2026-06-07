@@ -13,9 +13,11 @@ RSpec.describe Fal::Subscriber do
   describe "#wait_for_completion" do
     let(:submit_response) do
       Fal::SubmitResponse.new(
+        app_id: "fal-ai/flux/schnell",
         request_id: "req-123",
         status_url: "https://queue.fal.run/fal-ai/flux/requests/req-123/status",
-        response_url: "https://queue.fal.run/fal-ai/flux/requests/req-123"
+        response_url: "https://queue.fal.run/fal-ai/flux/requests/req-123",
+        cancel_url: "https://queue.fal.run/fal-ai/flux/requests/req-123/cancel"
       )
     end
     let(:result_data) { { "images" => [{ "url" => "https://example.com/image.png" }] } }
@@ -41,14 +43,16 @@ RSpec.describe Fal::Subscriber do
         expect(statuses).to eq([completed_status])
       end
 
-      it "fetches the result using the response URL" do
-        expect(queue).to receive(:result).with(submit_response.response_url)
+      it "fetches the result using the app id and request id" do
+        expect(queue).to receive(:result).with("fal-ai/flux/schnell", "req-123")
 
         subscriber.wait_for_completion(submit_response)
       end
 
-      it "checks status using the status URL" do
-        expect(queue).to receive(:status).with(submit_response.status_url)
+      it "checks status using the app id and request id" do
+        expect(queue).to receive(:status)
+          .with("fal-ai/flux/schnell", "req-123", logs: false)
+          .and_return(completed_status)
 
         subscriber.wait_for_completion(submit_response)
       end
