@@ -3,6 +3,7 @@
 require_relative "fal/version"
 require_relative "fal/errors"
 require_relative "fal/configuration"
+require_relative "fal/endpoint_id"
 require_relative "fal/endpoints"
 require_relative "fal/status"
 require_relative "fal/request"

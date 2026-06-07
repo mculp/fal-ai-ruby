@@ -18,13 +18,14 @@ RSpec.describe "Integration: real HTTP via WebMock" do
     "https://queue.fal.run"
   end
 
-  # The queue endpoint returns status/response URLs rooted at the app (e.g.
-  # "fal-ai/flux"), not the full variant path ("fal-ai/flux/schnell").
+  # The queue endpoint returns status/response/cancel URLs rooted at the app
+  # (e.g. "fal-ai/flux"), not the full variant path ("fal-ai/flux/schnell").
   def submit_body(request_id:, app:)
     JSON.generate(
       "request_id" => request_id,
       "status_url" => "#{queue}/#{app}/requests/#{request_id}/status",
       "response_url" => "#{queue}/#{app}/requests/#{request_id}",
+      "cancel_url" => "#{queue}/#{app}/requests/#{request_id}/cancel",
       "status" => "IN_QUEUE"
     )
   end
@@ -33,16 +34,16 @@ RSpec.describe "Integration: real HTTP via WebMock" do
     { status: 200, body: body, headers: { "Content-Type" => "application/json" } }
   end
 
-  describe "nested model IDs (the bug)" do
-    # The FAL API returns status/result URLs that differ from the submit URL for
-    # nested models. The submit URL uses the full model path, but the returned
-    # URLs strip the variant suffix:
+  describe "nested model ids resolve to the app-rooted request path" do
+    # The queue is per-app: a nested id like fal-ai/flux/schnell submits under the
+    # full path but is polled under fal-ai/flux. EndpointId encapsulates that, and
+    # these end-to-end stubs prove the URLs the gem constructs match the server's:
     #
     # Submit:  POST https://queue.fal.run/fal-ai/flux/schnell
-    # Status:  GET  https://queue.fal.run/fal-ai/flux/requests/{id}/status  (NOT /flux/schnell/...)
-    # Result:  GET  https://queue.fal.run/fal-ai/flux/requests/{id}         (NOT /flux/schnell/...)
+    # Status:  GET  https://queue.fal.run/fal-ai/flux/requests/{id}/status
+    # Result:  GET  https://queue.fal.run/fal-ai/flux/requests/{id}
 
-    it "uses API-returned URLs for status and result, not constructed ones" do
+    it "polls a nested model id under its app" do
       stub_request(:post, "#{queue}/fal-ai/flux/schnell")
         .to_return(ok(submit_body(request_id: "req-789", app: "fal-ai/flux")))
       stub_request(:get, "#{queue}/fal-ai/flux/requests/req-789/status")
@@ -55,7 +56,7 @@ RSpec.describe "Integration: real HTTP via WebMock" do
       expect(result).to eq({ "images" => [{ "url" => "https://fal.media/test.png" }] })
     end
 
-    it "works with deeply nested model IDs" do
+    it "polls a deeply nested model id under its app" do
       app_id = "fal-ai/kling-video/v1.5/pro/image-to-video"
       stub_request(:post, "#{queue}/#{app_id}")
         .to_return(ok(submit_body(request_id: "req-deep", app: "fal-ai/kling-video")))
@@ -80,16 +81,27 @@ RSpec.describe "Integration: real HTTP via WebMock" do
       expect(submit_response).to be_a(Fal::SubmitResponse)
       expect(submit_response.request_id).to eq("req-456")
       expect(submit_response.status_url).to eq("#{queue}/fal-ai/flux/requests/req-456/status")
-      expect(submit_response.response_url).to eq("#{queue}/fal-ai/flux/requests/req-456")
+      expect(submit_response.cancel_url).to eq("#{queue}/fal-ai/flux/requests/req-456/cancel")
+    end
+
+    it "attaches a webhook URL as a query parameter" do
+      hook = "https://example.com/fal-hook"
+      stubbed = stub_request(:post, "#{queue}/fal-ai/flux/schnell")
+                .with(query: { "fal_webhook" => hook })
+                .to_return(ok(submit_body(request_id: "req-1", app: "fal-ai/flux")))
+
+      client.queue.submit("fal-ai/flux/schnell", { prompt: "a cat" }, webhook_url: hook)
+
+      expect(stubbed).to have_been_requested
     end
   end
 
   describe "queue.status" do
-    it "fetches status from the given URL" do
+    it "fetches the status for an app id and request id" do
       stub_request(:get, "#{queue}/fal-ai/flux/requests/req-123/status")
         .to_return(ok('{"status": "IN_QUEUE", "queue_position": 3}'))
 
-      status = client.queue.status("#{queue}/fal-ai/flux/requests/req-123/status")
+      status = client.queue.status("fal-ai/flux/schnell", "req-123")
 
       expect(status).to be_a(Fal::Status::Queued)
       expect(status.position).to eq(3)
@@ -97,58 +109,56 @@ RSpec.describe "Integration: real HTTP via WebMock" do
   end
 
   describe "queue.result" do
-    it "fetches result from the given URL" do
+    it "fetches the result for an app id and request id" do
       stub_request(:get, "#{queue}/fal-ai/flux/requests/req-123")
         .to_return(ok('{"images": [{"url": "https://example.com/image.png"}]}'))
 
-      result = client.queue.result("#{queue}/fal-ai/flux/requests/req-123")
+      result = client.queue.result("fal-ai/flux/schnell", "req-123")
 
       expect(result).to eq({ "images" => [{ "url" => "https://example.com/image.png" }] })
     end
   end
 
-  describe "subscribe with polling" do
-    it "yields status updates while polling" do
-      stub_request(:post, "#{queue}/fal-ai/flux/schnell")
-        .to_return(ok(submit_body(request_id: "req-789", app: "fal-ai/flux")))
-      stub_request(:get, "#{queue}/fal-ai/flux/requests/req-789/status")
-        .to_return(
-          ok('{"status": "IN_QUEUE", "queue_position": 2}'),
-          ok('{"status": "IN_PROGRESS"}'),
-          ok('{"status": "COMPLETED"}')
-        )
-      stub_request(:get, "#{queue}/fal-ai/flux/requests/req-789")
-        .to_return(ok('{"images": []}'))
+  describe "queue.cancel" do
+    it "returns true when cancellation is accepted (202)" do
+      stub_request(:put, "#{queue}/fal-ai/flux/requests/req-123/cancel")
+        .to_return(status: 202, body: '{"status": "CANCELLATION_REQUESTED"}')
 
-      statuses = []
-      client.subscribe("fal-ai/flux/schnell", { prompt: "a cat" }) { |s| statuses << s }
+      expect(client.queue.cancel("fal-ai/flux/schnell", "req-123")).to be(true)
+    end
 
-      expected = [Fal::Status::Queued, Fal::Status::InProgress, Fal::Status::Completed]
-      expect(statuses.map(&:class)).to eq(expected)
+    it "returns false when the request is already finished (400)" do
+      stub_request(:put, "#{queue}/fal-ai/flux/requests/req-123/cancel")
+        .to_return(status: 400, body: '{"status": "ALREADY_COMPLETED"}')
+
+      expect(client.queue.cancel("fal-ai/flux/schnell", "req-123")).to be(false)
     end
   end
 
   describe "error handling" do
-    let(:status_url) { "#{queue}/fal-ai/flux/requests/req-123/status" }
+    def stub_status(status:, body:)
+      stub_request(:get, "#{queue}/fal-ai/flux/requests/req-123/status")
+        .to_return(status: status, body: body)
+    end
 
     it "raises AuthenticationError on 401" do
-      stub_request(:get, status_url).to_return(status: 401, body: '{"detail": "Invalid API key"}')
+      stub_status(status: 401, body: '{"detail": "Invalid API key"}')
 
-      expect { client.queue.status(status_url) }
+      expect { client.queue.status("fal-ai/flux/schnell", "req-123") }
         .to raise_error(Fal::AuthenticationError, "Invalid API key")
     end
 
     it "raises RateLimitError on 429" do
-      stub_request(:get, status_url).to_return(status: 429, body: '{"detail": "Rate limited"}')
+      stub_status(status: 429, body: '{"detail": "Rate limited"}')
 
-      expect { client.queue.status(status_url) }
+      expect { client.queue.status("fal-ai/flux/schnell", "req-123") }
         .to raise_error(Fal::RateLimitError, "Rate limited")
     end
 
     it "raises ConnectionError on network timeout" do
-      stub_request(:get, status_url).to_timeout
+      stub_request(:get, "#{queue}/fal-ai/flux/requests/req-123/status").to_timeout
 
-      expect { client.queue.status(status_url) }
+      expect { client.queue.status("fal-ai/flux/schnell", "req-123") }
         .to raise_error(Fal::ConnectionError, /HTTP request failed/)
     end
   end

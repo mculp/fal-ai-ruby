@@ -3,7 +3,7 @@
 require "http"
 
 module Fal
-  # HTTP connection wrapper using http.rb gem.
+  # HTTP connection wrapper using the http.rb gem.
   # Dependency-injected for testability.
   class Connection
     def initialize(config:, http: HTTP)
@@ -13,33 +13,34 @@ module Fal
     end
 
     def post(endpoint, body: nil)
-      response = perform_post(endpoint, body)
-      handle_response(response)
+      request(:post, endpoint, body: body)
     end
 
     def get(endpoint)
-      response = perform_get(endpoint)
-      handle_response(response)
+      request(:get, endpoint)
+    end
+
+    def put(endpoint, body: nil)
+      request(:put, endpoint, body: body)
     end
 
     private
 
-    def perform_post(endpoint, body)
+    def request(verb, endpoint, body: nil)
+      handle_response(perform(verb, endpoint, body))
+    end
+
+    def perform(verb, endpoint, body)
       @http
         .headers(@request.headers)
         .timeout(@config.timeout)
-        .post(endpoint.url, body: body ? @request.body(body) : nil)
+        .public_send(verb, endpoint.url, **body_options(body))
     rescue HTTP::Error => e
       raise ConnectionError.new("HTTP request failed: #{e.message}", original_error: e)
     end
 
-    def perform_get(endpoint)
-      @http
-        .headers(@request.headers)
-        .timeout(@config.timeout)
-        .get(endpoint.url)
-    rescue HTTP::Error => e
-      raise ConnectionError.new("HTTP request failed: #{e.message}", original_error: e)
+    def body_options(body)
+      body ? { body: @request.body(body) } : {}
     end
 
     def handle_response(http_response)

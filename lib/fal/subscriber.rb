@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module Fal
-  # Polls queue until completion, yielding status updates.
+  # Polls the queue until completion, yielding status updates.
   class Subscriber
     def initialize(queue:, poll_interval:, timeout:)
       @queue = queue
@@ -9,14 +9,16 @@ module Fal
       @timeout = timeout
     end
 
-    def wait_for_completion(submit_response, &on_update)
+    def wait_for_completion(submit_response, logs: false, &on_update)
       deadline = Time.now + @timeout
+      app_id = submit_response.app_id
+      request_id = submit_response.request_id
 
       loop do
         check_timeout(deadline)
-        status = @queue.status(submit_response.status_url)
+        status = @queue.status(app_id, request_id, logs: logs)
         yield_status(status, &on_update)
-        return @queue.result(submit_response.response_url) if status.completed?
+        return @queue.result(app_id, request_id) if status.completed?
 
         sleep(@poll_interval)
       end
