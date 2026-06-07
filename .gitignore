@@ -10,3 +10,10 @@
 # rspec failure tracking
 .rspec_status
 fal-ai-*.gem
+
+# Libraries should not commit Gemfile.lock so CI resolves against current
+# dependency versions (https://bundler.io/guides/faq.html).
+/Gemfile.lock
+
+# Local scratch notes (not part of the gem)
+/.dev-notes/

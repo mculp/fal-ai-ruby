@@ -1,5 +1,5 @@
 AllCops:
-  TargetRubyVersion: 3.0
+  TargetRubyVersion: 3.2
   NewCops: enable
   SuggestExtensions: false
 
@@ -13,4 +13,15 @@ Metrics/BlockLength:
   Exclude:
     - "spec/**/*"
     - "*.gemspec"
+
+# `lib/fal-ai.rb` is dash-named on purpose: it must match the gem name so that
+# `require "fal-ai"` (and Bundler's auto-require) resolves.
+Naming/FileName:
+  Exclude:
+    - "lib/fal-ai.rb"
+
+# Prefer named block parameters (e.g. `&on_queue_update`) over anonymous `&`.
+# The name documents what the block is for in the public API.
+Naming/BlockForwarding:
+  EnforcedStyle: explicit
 

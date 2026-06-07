@@ -11,18 +11,7 @@ module Fal
     def submit(app_id, input)
       endpoint = Endpoints::Submit.new(app_id: app_id, base_url: @config.queue_url)
       response = @connection.post(endpoint, body: input)
-
-      status_url = response.status_url
-      response_url = response.response_url
-
-      raise Error, "API response missing status_url for request #{response.request_id}" unless status_url
-      raise Error, "API response missing response_url for request #{response.request_id}" unless response_url
-
-      SubmitResponse.new(
-        request_id: response.request_id,
-        status_url: status_url,
-        response_url: response_url
-      )
+      build_submit_response(response)
     end
 
     def status(status_url)
@@ -35,6 +24,21 @@ module Fal
       endpoint = Endpoints::Url.new(url: response_url)
       response = @connection.get(endpoint)
       response.data
+    end
+
+    private
+
+    def build_submit_response(response)
+      SubmitResponse.new(
+        request_id: response.request_id,
+        status_url: require_field(response, :status_url),
+        response_url: require_field(response, :response_url)
+      )
+    end
+
+    def require_field(response, field)
+      response.public_send(field) ||
+        raise(Error, "API response missing #{field} for request #{response.request_id}")
     end
   end
 
