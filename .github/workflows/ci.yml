@@ -17,10 +17,16 @@ jobs:
   test:
     name: Ruby ${{ matrix.ruby }}
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.experimental || false }}
     strategy:
       fail-fast: false
       matrix:
-        ruby: ["3.3", "3.4", "4.0"]
+        ruby: ["3.3", "3.4", "4.0", "4.0.4"]
+        include:
+          # In-development next Ruby (master, currently 4.1.0dev) — allowed to fail.
+          # setup-ruby uses "ruby-head"; "4.1.0.dev" is not a recognized version.
+          - ruby: "ruby-head"
+            experimental: true
 
     steps:
       # Actions are pinned to commit SHAs (Dependabot keeps them up to date).

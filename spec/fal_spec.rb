@@ -58,5 +58,44 @@ RSpec.describe Fal do
 
       expect(Fal.configuration).not_to be(original)
     end
+
+    it "resets the memoized default client" do
+      Fal.configure { |c| c.api_key = "test-key" }
+      original = Fal.default_client
+
+      Fal.reset_configuration!
+      Fal.configure { |c| c.api_key = "test-key" }
+
+      expect(Fal.default_client).not_to be(original)
+    end
+  end
+
+  describe "module-level convenience methods" do
+    before { Fal.configure { |c| c.api_key = "test-key" } }
+
+    it ".default_client memoizes a single client" do
+      expect(Fal.default_client).to be(Fal.default_client)
+    end
+
+    it ".run delegates to the default client" do
+      allow(Fal).to receive(:default_client)
+        .and_return(instance_double(Fal::Client, run: { "ok" => true }))
+
+      expect(Fal.run("fal-ai/x", { a: 1 })).to eq({ "ok" => true })
+    end
+
+    it ".upload delegates to the default client" do
+      allow(Fal).to receive(:default_client)
+        .and_return(instance_double(Fal::Client, upload: "https://fal.media/x"))
+
+      expect(Fal.upload("pic.png")).to eq("https://fal.media/x")
+    end
+
+    it ".queue delegates to the default client" do
+      queue = instance_double(Fal::Queue)
+      allow(Fal).to receive(:default_client).and_return(instance_double(Fal::Client, queue: queue))
+
+      expect(Fal.queue).to be(queue)
+    end
   end
 end

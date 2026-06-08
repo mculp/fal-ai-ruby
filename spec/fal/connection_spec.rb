@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "webmock/rspec"
+
 RSpec.describe Fal::Connection do
   let(:config) do
     Fal::Configuration.new.tap do |c|
@@ -7,165 +9,193 @@ RSpec.describe Fal::Connection do
       c.timeout = 30
     end
   end
+  let(:connection) { described_class.new(config: config) }
 
-  # Mock HTTP client (not mocking Connection itself)
-  let(:mock_http) { double("HTTP") }
-  let(:mock_http_with_headers) { double("HTTP with headers") }
-  let(:mock_http_with_timeout) { double("HTTP with timeout") }
-
-  let(:connection) { Fal::Connection.new(config: config, http: mock_http) }
-
-  before do
-    allow(mock_http).to receive(:headers).and_return(mock_http_with_headers)
-    allow(mock_http_with_headers).to receive(:timeout).and_return(mock_http_with_timeout)
+  let(:run_endpoint) do
+    Fal::Endpoints::Run.new(endpoint_id: "fal-ai/flux", base_url: "https://fal.run")
+  end
+  let(:status_endpoint) do
+    Fal::Endpoints::Status.new(
+      endpoint_id: "fal-ai/flux/schnell", request_id: "abc-123", base_url: "https://queue.fal.run"
+    )
   end
 
   describe "#post" do
-    let(:endpoint) do
-      Fal::Endpoints::Run.new(app_id: "fal-ai/flux", base_url: "https://fal.run")
+    it "sends auth + JSON and returns a parsed Response" do
+      stub = stub_request(:post, "https://fal.run/fal-ai/flux")
+             .with(
+               body: '{"prompt":"a cat"}',
+               headers: { "Authorization" => "Key test-api-key", "Content-Type" => "application/json" }
+             )
+             .to_return(status: 200, body: '{"images":[]}')
+
+      response = connection.post(run_endpoint, body: { prompt: "a cat" })
+
+      expect(response).to be_a(Fal::Response)
+      expect(response.data).to eq({ "images" => [] })
+      expect(stub).to have_been_requested
     end
 
-    context "with successful response" do
-      let(:http_response) { double("HTTP::Response", status: 200, body: '{"images": []}') }
+    it "omits the body when none is given" do
+      stub = stub_request(:post, "https://fal.run/fal-ai/flux")
+             .with { |req| req.body.nil? || req.body.empty? }
+             .to_return(status: 200, body: "{}")
 
-      before do
-        allow(mock_http_with_timeout).to receive(:post).and_return(http_response)
-      end
-
-      it "returns a Response object" do
-        response = connection.post(endpoint, body: { prompt: "a cat" })
-
-        expect(response).to be_a(Fal::Response)
-      end
-
-      it "sends request to endpoint URL" do
-        expect(mock_http_with_timeout).to receive(:post)
-          .with("https://fal.run/fal-ai/flux", body: '{"prompt":"a cat"}')
-          .and_return(http_response)
-
-        connection.post(endpoint, body: { prompt: "a cat" })
-      end
-
-      it "handles nil body" do
-        expect(mock_http_with_timeout).to receive(:post)
-          .with("https://fal.run/fal-ai/flux", body: nil)
-          .and_return(http_response)
-
-        connection.post(endpoint, body: nil)
-      end
+      expect(connection.post(run_endpoint)).to be_a(Fal::Response)
+      expect(stub).to have_been_requested
     end
 
-    context "with 401 response" do
-      let(:http_response) { double("HTTP::Response", status: 401, body: '{"detail": "Invalid API key"}') }
+    {
+      401 => Fal::AuthenticationError, 404 => Fal::NotFoundError,
+      429 => Fal::RateLimitError, 500 => Fal::ServerError, 418 => Fal::ApiError
+    }.each do |status, error_class|
+      it "raises #{error_class} on #{status}" do
+        stub_request(:post, "https://fal.run/fal-ai/flux")
+          .to_return(status: status, body: '{"detail":"nope"}')
 
-      before do
-        allow(mock_http_with_timeout).to receive(:post).and_return(http_response)
-      end
-
-      it "raises AuthenticationError" do
-        expect { connection.post(endpoint) }
-          .to raise_error(Fal::AuthenticationError)
+        expect { connection.post(run_endpoint) }.to raise_error(error_class)
       end
     end
 
-    context "with 404 response" do
-      let(:http_response) { double("HTTP::Response", status: 404, body: '{"detail": "Not found"}') }
+    it "wraps a network failure as ConnectionError carrying the original error" do
+      stub_request(:post, "https://fal.run/fal-ai/flux").to_raise(Faraday::ConnectionFailed.new("boom"))
 
-      before do
-        allow(mock_http_with_timeout).to receive(:post).and_return(http_response)
-      end
-
-      it "raises NotFoundError" do
-        expect { connection.post(endpoint) }
-          .to raise_error(Fal::NotFoundError)
-      end
+      expect { connection.post(run_endpoint) }
+        .to raise_error(Fal::ConnectionError, /HTTP request failed/) do |error|
+          expect(error.original_error).to be_a(Faraday::Error)
+        end
     end
 
-    context "with 429 response" do
-      let(:http_response) { double("HTTP::Response", status: 429, body: '{"detail": "Rate limited"}') }
+    it "raises a typed ApiError (not a TypeError) when the error body is a JSON array" do
+      # A proxy/CDN may wrap a non-streaming error as a top-level array; the
+      # error path must surface an ApiError, not a low-level TypeError from
+      # indexing the array with a string key.
+      stub_request(:post, "https://fal.run/fal-ai/flux")
+        .to_return(status: 400, body: '[{"detail":"nope"}]')
 
-      before do
-        allow(mock_http_with_timeout).to receive(:post).and_return(http_response)
-      end
-
-      it "raises RateLimitError" do
-        expect { connection.post(endpoint) }
-          .to raise_error(Fal::RateLimitError)
-      end
-    end
-
-    context "with 500 response" do
-      let(:http_response) { double("HTTP::Response", status: 500, body: '{"detail": "Internal error"}') }
-
-      before do
-        allow(mock_http_with_timeout).to receive(:post).and_return(http_response)
-      end
-
-      it "raises ServerError" do
-        expect { connection.post(endpoint) }
-          .to raise_error(Fal::ServerError)
-      end
-    end
-
-    context "with HTTP error" do
-      before do
-        allow(mock_http_with_timeout).to receive(:post)
-          .and_raise(HTTP::Error.new("Connection refused"))
-      end
-
-      it "raises ConnectionError" do
-        expect { connection.post(endpoint) }
-          .to raise_error(Fal::ConnectionError, /HTTP request failed/)
-      end
-
-      it "includes original error" do
-        expect { connection.post(endpoint) }
-          .to raise_error do |error|
-            expect(error.original_error).to be_a(HTTP::Error)
-          end
-      end
+      expect { connection.post(run_endpoint) }.to raise_error(Fal::ApiError, /nope/)
     end
   end
 
   describe "#get" do
-    let(:endpoint) do
-      Fal::Endpoints::Url.new(
-        url: "https://queue.fal.run/fal-ai/flux/requests/abc-123/status"
+    it "GETs the endpoint URL and returns a Response" do
+      stub = stub_request(:get, "https://queue.fal.run/fal-ai/flux/schnell/requests/abc-123/status")
+             .to_return(status: 200, body: '{"status":"COMPLETED"}')
+
+      expect(connection.get(status_endpoint)).to be_a(Fal::Response)
+      expect(stub).to have_been_requested
+    end
+  end
+
+  describe "#put" do
+    let(:cancel_endpoint) do
+      Fal::Endpoints::Cancel.new(
+        endpoint_id: "fal-ai/flux/schnell", request_id: "abc-123", base_url: "https://queue.fal.run"
       )
     end
 
-    context "with successful response" do
-      let(:http_response) { double("HTTP::Response", status: 200, body: '{"status": "COMPLETED"}') }
+    it "PUTs the endpoint URL and returns a Response" do
+      stub = stub_request(:put, "https://queue.fal.run/fal-ai/flux/schnell/requests/abc-123/cancel")
+             .to_return(status: 202, body: '{"status":"CANCELLATION_REQUESTED"}')
 
-      before do
-        allow(mock_http_with_timeout).to receive(:get).and_return(http_response)
-      end
+      expect(connection.put(cancel_endpoint)).to be_a(Fal::Response)
+      expect(stub).to have_been_requested
+    end
+  end
 
-      it "returns a Response object" do
-        response = connection.get(endpoint)
-
-        expect(response).to be_a(Fal::Response)
-      end
-
-      it "sends request to endpoint URL" do
-        expect(mock_http_with_timeout).to receive(:get)
-          .with("https://queue.fal.run/fal-ai/flux/requests/abc-123/status")
-          .and_return(http_response)
-
-        connection.get(endpoint)
-      end
+  describe "#stream" do
+    let(:stream_endpoint) do
+      Fal::Endpoints::Stream.new(endpoint_id: "fal-ai/flux", base_url: "https://fal.run")
     end
 
-    context "with HTTP error" do
-      before do
-        allow(mock_http_with_timeout).to receive(:get)
-          .and_raise(HTTP::Error.new("Timeout"))
-      end
+    it "yields body chunks and requests the event-stream content type" do
+      stub_request(:post, "https://fal.run/fal-ai/flux/stream")
+        .with(headers: { "Accept" => "text/event-stream" })
+        .to_return(status: 200, body: "data: a\n\ndata: b\n\n")
 
-      it "raises ConnectionError" do
-        expect { connection.get(endpoint) }
-          .to raise_error(Fal::ConnectionError)
-      end
+      chunks = []
+      connection.stream(stream_endpoint, body: { x: 1 }) { |chunk| chunks << chunk }
+
+      expect(chunks.join).to eq("data: a\n\ndata: b\n\n")
+    end
+
+    it "raises without yielding on a non-2xx status, surfacing the server detail" do
+      stub_request(:post, "https://fal.run/fal-ai/flux/stream")
+        .to_return(status: 401, body: '{"detail":"bad key"}')
+
+      yielded = []
+      expect { connection.stream(stream_endpoint, body: {}) { |chunk| yielded << chunk } }
+        .to raise_error(Fal::AuthenticationError, /bad key/)
+      expect(yielded).to be_empty
+    end
+
+    it "raises a typed ApiError (not a TypeError) when the error body is a JSON array" do
+      # A proxy/CDN may wrap the error as a top-level array; indexing it with a
+      # string key must not blow up the error path with a low-level TypeError.
+      stub_request(:post, "https://fal.run/fal-ai/flux/stream")
+        .to_return(status: 400, body: '[{"detail":"nope"}]')
+
+      yielded = []
+      expect { connection.stream(stream_endpoint, body: {}) { |chunk| yielded << chunk } }
+        .to raise_error(Fal::ApiError, /nope/)
+    end
+
+    it "raises ArgumentError at entry when no block is given" do
+      # Without a block the chunk collector would fail later with an opaque
+      # NoMethodError on the first chunk; fail fast and clearly instead.
+      expect { connection.stream(stream_endpoint, body: {}) }
+        .to raise_error(ArgumentError, /block/)
+    end
+  end
+
+  describe "#stream with an adapter that defers env.status" do
+    # Faraday's net/http adapter populates env.status before streaming, but an
+    # injected custom adapter may leave it nil until the response is built. A
+    # nil status must be treated as success so chunks still reach the caller
+    # rather than being swallowed into the error buffer.
+    let(:deferred_status_faraday) do
+      Class.new do
+        def post(_url)
+          request = Struct.new(:headers, :body, :options).new(nil, nil, Struct.new(:on_data).new)
+          yield request
+          env = Struct.new(:status).new(nil)
+          ["data: a\n\n", "data: b\n\n"].each { |c| request.options.on_data.call(c, c.bytesize, env) }
+          Struct.new(:status) { def success? = true }.new(200)
+        end
+      end.new
+    end
+
+    it "yields chunks to the caller when env.status is nil during streaming" do
+      connection = described_class.new(config: config, faraday: deferred_status_faraday)
+      endpoint = Fal::Endpoints::Stream.new(endpoint_id: "fal-ai/flux", base_url: "https://fal.run")
+
+      chunks = []
+      connection.stream(endpoint, body: { x: 1 }) { |chunk| chunks << chunk }
+
+      expect(chunks).to eq(["data: a\n\n", "data: b\n\n"])
+    end
+  end
+
+  describe "#upload" do
+    let(:url) { "https://upload.example/put/abc" }
+
+    it "PUTs the raw body with the content type and no fal auth header" do
+      stub = stub_request(:put, url)
+             .with(body: "raw-bytes", headers: { "Content-Type" => "image/png" })
+             .to_return(status: 200, body: "")
+
+      connection.upload(url, body: "raw-bytes", content_type: "image/png")
+
+      expect(stub).to have_been_requested
+      expect(a_request(:put, url).with(headers: { "Authorization" => "Key test-api-key" }))
+        .not_to have_been_made
+    end
+
+    it "raises an API error when the upload fails" do
+      stub_request(:put, url).to_return(status: 403, body: "Forbidden")
+
+      expect { connection.upload(url, body: "x", content_type: "text/plain") }
+        .to raise_error(Fal::ApiError)
     end
   end
 end

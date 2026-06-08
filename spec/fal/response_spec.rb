@@ -4,7 +4,7 @@ RSpec.describe Fal::Response do
   # Create a simple mock HTTP response for testing
   # We're not mocking Response itself, just the HTTP library's response object
   let(:http_response) do
-    double("HTTP::Response", status: status_code, body: body)
+    double("Faraday::Response", status: status_code, body: body)
   end
 
   describe "#status_code" do
@@ -24,7 +24,7 @@ RSpec.describe Fal::Response do
     context "with 2xx status" do
       [200, 201, 204].each do |code|
         it "returns true for #{code}" do
-          http_response = double("HTTP::Response", status: code, body: body)
+          http_response = double("Faraday::Response", status: code, body: body)
           response = Fal::Response.new(http_response)
 
           expect(response.success?).to be true
@@ -35,7 +35,7 @@ RSpec.describe Fal::Response do
     context "with non-2xx status" do
       [400, 401, 404, 500].each do |code|
         it "returns false for #{code}" do
-          http_response = double("HTTP::Response", status: code, body: body)
+          http_response = double("Faraday::Response", status: code, body: body)
           response = Fal::Response.new(http_response)
 
           expect(response.success?).to be false
@@ -131,6 +131,30 @@ RSpec.describe Fal::Response do
         response = Fal::Response.new(http_response)
 
         expect(response.error_message).to eq("Unknown error")
+      end
+    end
+
+    context "with a non-JSON error body" do
+      let(:status_code) { 502 }
+      let(:body) { "502 Bad Gateway" }
+
+      it "returns the raw body text instead of unknown error" do
+        response = Fal::Response.new(http_response)
+
+        expect(response.error_message).to eq("502 Bad Gateway")
+      end
+    end
+
+    context "with a JSON array error body (proxy/CDN-wrapped)" do
+      # A proxy or CDN may wrap the error as a top-level array; indexing it with
+      # a string key must not blow up the error path with a low-level TypeError.
+      let(:body) { '[{"detail": "nope"}]' }
+
+      it "surfaces the raw body instead of raising a TypeError" do
+        response = Fal::Response.new(http_response)
+
+        expect { response.error_message }.not_to raise_error
+        expect(response.error_message).to include("nope")
       end
     end
   end

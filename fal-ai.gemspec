@@ -34,5 +34,11 @@ Gem::Specification.new do |spec|
   spec.executables = spec.files.grep(%r{\Aexe/}) { |f| File.basename(f) }
   spec.require_paths = ["lib"]
 
-  spec.add_dependency "http", "~> 5.0"
+  # Faraday is pure Ruby (no native extensions), so the gem installs cleanly on
+  # every supported Ruby. http.rb was tried but its llhttp-ffi/ffi native build
+  # loses bundler's parallel-install race on Ruby 4.x (CI confirmed on 4.0,
+  # 4.0.4, and 4.1.0.dev), so the transport stays on Faraday.
+  spec.add_dependency "faraday", "~> 2.0"
+
+  spec.add_dependency "openssl", ">= 3.0"
 end
