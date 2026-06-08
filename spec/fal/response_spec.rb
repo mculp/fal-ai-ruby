@@ -144,6 +144,19 @@ RSpec.describe Fal::Response do
         expect(response.error_message).to eq("502 Bad Gateway")
       end
     end
+
+    context "with a JSON array error body (proxy/CDN-wrapped)" do
+      # A proxy or CDN may wrap the error as a top-level array; indexing it with
+      # a string key must not blow up the error path with a low-level TypeError.
+      let(:body) { '[{"detail": "nope"}]' }
+
+      it "surfaces the raw body instead of raising a TypeError" do
+        response = Fal::Response.new(http_response)
+
+        expect { response.error_message }.not_to raise_error
+        expect(response.error_message).to include("nope")
+      end
+    end
   end
 
   describe "#to_status" do

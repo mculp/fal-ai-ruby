@@ -62,6 +62,16 @@ RSpec.describe Fal::Connection do
           expect(error.original_error).to be_a(Faraday::Error)
         end
     end
+
+    it "raises a typed ApiError (not a TypeError) when the error body is a JSON array" do
+      # A proxy/CDN may wrap a non-streaming error as a top-level array; the
+      # error path must surface an ApiError, not a low-level TypeError from
+      # indexing the array with a string key.
+      stub_request(:post, "https://fal.run/fal-ai/flux")
+        .to_return(status: 400, body: '[{"detail":"nope"}]')
+
+      expect { connection.post(run_endpoint) }.to raise_error(Fal::ApiError, /nope/)
+    end
   end
 
   describe "#get" do
