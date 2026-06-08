@@ -52,7 +52,9 @@ module Fal
     class QueueRequest
       def initialize(endpoint_id:, request_id:, base_url:)
         @endpoint_id = EndpointId.coerce(endpoint_id)
-        @request_id = request_id
+        @request_id = request_id.to_s
+        raise ArgumentError, "request_id must not be blank" if @request_id.empty?
+
         @base_url = base_url
       end
 

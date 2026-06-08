@@ -56,6 +56,14 @@ RSpec.describe Fal::Subscriber do
 
         subscriber.wait_for_completion(submit_response)
       end
+
+      it "forwards logs: true to queue.status when requested" do
+        expect(queue).to receive(:status)
+          .with("fal-ai/flux/schnell", "req-123", logs: true)
+          .and_return(completed_status)
+
+        subscriber.wait_for_completion(submit_response, logs: true)
+      end
     end
 
     context "when queued then completed" do

@@ -28,4 +28,18 @@ RSpec.describe Fal::EndpointId do
       expect(table[described_class.new("fal-ai/flux")]).to eq(:ok)
     end
   end
+
+  describe "validation" do
+    it "rejects a nil id rather than coercing it to an empty string" do
+      expect { described_class.new(nil) }.to raise_error(ArgumentError, /blank/)
+    end
+
+    it "rejects a blank id" do
+      expect { described_class.new("   ") }.to raise_error(ArgumentError, /blank/)
+    end
+
+    it "trims surrounding whitespace from a valid id" do
+      expect(described_class.new("  fal-ai/flux  ").to_s).to eq("fal-ai/flux")
+    end
+  end
 end
