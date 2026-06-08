@@ -37,9 +37,12 @@ RSpec.describe Fal::Connection do
     end
 
     it "omits the body when none is given" do
-      stub_request(:post, "https://fal.run/fal-ai/flux").to_return(status: 200, body: "{}")
+      stub = stub_request(:post, "https://fal.run/fal-ai/flux")
+             .with { |req| req.body.nil? || req.body.empty? }
+             .to_return(status: 200, body: "{}")
 
       expect(connection.post(run_endpoint)).to be_a(Fal::Response)
+      expect(stub).to have_been_requested
     end
 
     {
@@ -135,6 +138,13 @@ RSpec.describe Fal::Connection do
       yielded = []
       expect { connection.stream(stream_endpoint, body: {}) { |chunk| yielded << chunk } }
         .to raise_error(Fal::ApiError, /nope/)
+    end
+
+    it "raises ArgumentError at entry when no block is given" do
+      # Without a block the chunk collector would fail later with an opaque
+      # NoMethodError on the first chunk; fail fast and clearly instead.
+      expect { connection.stream(stream_endpoint, body: {}) }
+        .to raise_error(ArgumentError, /block/)
     end
   end
 

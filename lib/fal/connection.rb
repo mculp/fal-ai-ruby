@@ -29,6 +29,8 @@ module Fal
     # Streams a Server-Sent Events response, yielding each raw body chunk for a
     # 2xx response. Non-2xx responses raise the matching API error instead.
     def stream(endpoint, body: nil, &on_chunk)
+      raise ArgumentError, "stream requires a block to receive chunks" unless block_given?
+
       error_body = +""
       response = perform(endpoint.method, endpoint.url) do |req|
         req.headers = @request.headers.merge("Accept" => "text/event-stream")

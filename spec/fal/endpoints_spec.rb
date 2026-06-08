@@ -60,6 +60,12 @@ RSpec.describe Fal::Endpoints do
 
       expect(endpoint.url).to eq("https://queue.fal.run/fal-ai/flux/schnell/requests/req-1/status?logs=1")
     end
+
+    it "rejects a blank request_id rather than building an invalid queue URL" do
+      expect do
+        described_class.new(endpoint_id: "fal-ai/flux/schnell", request_id: "", base_url: queue_url)
+      end.to raise_error(ArgumentError, /request_id/)
+    end
   end
 
   describe Fal::Endpoints::Result do
@@ -81,6 +87,15 @@ RSpec.describe Fal::Endpoints do
 
       expect(endpoint.url).to eq("https://queue.fal.run/fal-ai/flux/schnell/requests/req-1/cancel")
       expect(endpoint.method).to eq(:put)
+    end
+  end
+
+  describe Fal::Endpoints::StorageInitiate do
+    it "POSTs the storage initiate URL with the CDN storage type" do
+      endpoint = described_class.new(base_url: "https://rest.fal.ai")
+
+      expect(endpoint.url).to eq("https://rest.fal.ai/storage/upload/initiate?storage_type=fal-cdn-v3")
+      expect(endpoint.method).to eq(:post)
     end
   end
 end

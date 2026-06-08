@@ -13,7 +13,8 @@ module Fal
     end
 
     def initialize(id)
-      @id = id.to_s
+      @id = id.to_s.strip
+      raise ArgumentError, "endpoint id must not be blank" if @id.empty?
     end
 
     attr_reader :id

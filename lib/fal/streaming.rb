@@ -14,22 +14,27 @@ module Fal
 
     def stream(app_id, input, &block)
       endpoint = Endpoints::Stream.new(endpoint_id: app_id, base_url: @config.run_url)
-      events = collect_events(endpoint, input, &block)
-      raise Error, "stream produced no events" if events.empty?
+      final = collect_events(endpoint, input, &block)
+      raise Error, "stream produced no events" if final.equal?(NO_EVENTS)
 
-      events.last
+      final
     end
 
     private
 
+    # Sentinel for "no event seen", distinct from a legitimately nil/false event.
+    NO_EVENTS = Object.new
+    private_constant :NO_EVENTS
+
+    # Drives the SSE parser and keeps only the final event, so a long-running
+    # stream stays O(1) in memory rather than retaining every partial result.
     def collect_events(endpoint, input, &block)
-      events = []
       parser = Sse::Parser.new
-      @connection.stream(endpoint, body: input) do |chunk|
-        parser.feed(chunk) { |data| events << emit(data, &block) }
-      end
-      parser.flush { |data| events << emit(data, &block) }
-      events
+      last = NO_EVENTS
+      record = ->(data) { last = emit(data, &block) }
+      @connection.stream(endpoint, body: input) { |chunk| parser.feed(chunk, &record) }
+      parser.flush(&record)
+      last
     end
 
     def emit(data, &block)
