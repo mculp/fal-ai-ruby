@@ -66,12 +66,14 @@ module Fal
     end
 
     # The net/http adapter populates env.status before it streams the body, so
-    # the 2xx check is reliable: success chunks go to the caller, error chunks
-    # are buffered for the message. (#to_i keeps a nil status — only possible on
-    # an unusual adapter — out of the 2xx range rather than raising.)
+    # success chunks reach the caller and error chunks are buffered for the
+    # message. A nil status (a non-default adapter that hasn't set it yet) is
+    # treated as success rather than swallowed — a genuine error is still caught
+    # afterwards by ensure_streamed_success.
     def chunk_collector(error_body, &on_chunk)
       proc do |chunk, _bytes, env|
-        if (200..299).cover?(env.status.to_i)
+        status = env.status
+        if status.nil? || (200..299).cover?(status)
           on_chunk.call(chunk)
         else
           error_body << chunk
@@ -100,6 +102,8 @@ module Fal
       return if error_body.to_s.empty?
 
       parsed = JSON.parse(error_body)
+      return unless parsed.is_a?(Hash)
+
       parsed["detail"] || parsed["message"]
     rescue JSON::ParserError
       nil

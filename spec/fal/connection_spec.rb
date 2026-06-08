@@ -115,6 +115,45 @@ RSpec.describe Fal::Connection do
         .to raise_error(Fal::AuthenticationError, /bad key/)
       expect(yielded).to be_empty
     end
+
+    it "raises a typed ApiError (not a TypeError) when the error body is a JSON array" do
+      # A proxy/CDN may wrap the error as a top-level array; indexing it with a
+      # string key must not blow up the error path with a low-level TypeError.
+      stub_request(:post, "https://fal.run/fal-ai/flux/stream")
+        .to_return(status: 400, body: '[{"detail":"nope"}]')
+
+      yielded = []
+      expect { connection.stream(stream_endpoint, body: {}) { |chunk| yielded << chunk } }
+        .to raise_error(Fal::ApiError, /nope/)
+    end
+  end
+
+  describe "#stream with an adapter that defers env.status" do
+    # Faraday's net/http adapter populates env.status before streaming, but an
+    # injected custom adapter may leave it nil until the response is built. A
+    # nil status must be treated as success so chunks still reach the caller
+    # rather than being swallowed into the error buffer.
+    let(:deferred_status_faraday) do
+      Class.new do
+        def post(_url)
+          request = Struct.new(:headers, :body, :options).new(nil, nil, Struct.new(:on_data).new)
+          yield request
+          env = Struct.new(:status).new(nil)
+          ["data: a\n\n", "data: b\n\n"].each { |c| request.options.on_data.call(c, c.bytesize, env) }
+          Struct.new(:status) { def success? = true }.new(200)
+        end
+      end.new
+    end
+
+    it "yields chunks to the caller when env.status is nil during streaming" do
+      connection = described_class.new(config: config, faraday: deferred_status_faraday)
+      endpoint = Fal::Endpoints::Stream.new(endpoint_id: "fal-ai/flux", base_url: "https://fal.run")
+
+      chunks = []
+      connection.stream(endpoint, body: { x: 1 }) { |chunk| chunks << chunk }
+
+      expect(chunks).to eq(["data: a\n\n", "data: b\n\n"])
+    end
   end
 
   describe "#upload" do

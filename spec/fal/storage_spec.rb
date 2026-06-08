@@ -47,6 +47,16 @@ RSpec.describe Fal::Storage do
     storage.upload(StringIO.new("hello"), content_type: "text/plain", file_name: "a.txt")
   end
 
+  it "uploads the whole IO even when the caller already consumed part of it" do
+    io = StringIO.new("FULLDATA")
+    io.read(4) # caller sniffed "FULL"; position now sits at "DATA"
+
+    expect(connection).to receive(:upload)
+      .with("https://upload.fal.example/put/abc", body: "FULLDATA", content_type: "text/plain")
+
+    storage.upload(io, content_type: "text/plain", file_name: "a.txt")
+  end
+
   it "infers content type and file name from a path" do
     Tempfile.create(["picture", ".png"]) do |file|
       file.binmode
