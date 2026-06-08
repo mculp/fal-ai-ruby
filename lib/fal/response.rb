@@ -37,7 +37,13 @@ module Fal
       data["cancel_url"]
     end
 
+    # A non-Hash JSON body (a proxy/CDN may wrap an error as a top-level array or
+    # scalar) has no detail/message keys and would raise TypeError if indexed by
+    # string. Fall back to the raw response text so the caller still gets a
+    # useful ApiError rather than a low-level TypeError.
     def error_message
+      return truncate(raw_body) || "Unknown error" unless data.is_a?(Hash)
+
       data["detail"] || data["message"] || raw_error_text || "Unknown error"
     end
 
@@ -53,11 +59,20 @@ module Fal
       { "raw" => @http_response.body.to_s }
     end
 
+    # The raw body text from a parse failure (parse_body stashes it under "raw").
     def raw_error_text
-      raw = data["raw"]
-      return if raw.nil? || raw.strip.empty?
+      truncate(data["raw"])
+    end
 
-      raw.length > 500 ? "#{raw[0, 500]}…" : raw
+    def raw_body
+      @http_response.body.to_s
+    end
+
+    # Bound a blank/oversized error string; nil when there is nothing useful.
+    def truncate(text)
+      return if text.nil? || text.strip.empty?
+
+      text.length > 500 ? "#{text[0, 500]}…" : text
     end
 
     def status_class
