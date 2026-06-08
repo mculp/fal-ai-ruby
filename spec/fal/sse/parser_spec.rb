@@ -36,6 +36,13 @@ RSpec.describe Fal::Sse::Parser do
     expect(events_from("data: hi\r\n\r\n")).to eq(["hi"])
   end
 
+  it "keeps a multi-line event intact when a CRLF straddles a chunk boundary" do
+    # The CR of the first line's terminator ends chunk one; its LF opens chunk
+    # two. A lone CR must not be promoted to a separator, or the single event
+    # (two data lines) is wrongly split in two.
+    expect(events_from("data: line1\r", "\ndata: line2\r\n\r\n")).to eq(["line1\nline2"])
+  end
+
   it "skips events that carry no data field" do
     expect(events_from("event: ping\n\ndata: real\n\n")).to eq(["real"])
   end

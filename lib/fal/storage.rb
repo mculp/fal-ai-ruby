@@ -46,16 +46,26 @@ module Fal
 
       def self.for(file, content_type:, file_name:)
         if file.respond_to?(:read)
-          new(bytes: file.read, file_name: file_name || "upload", content_type: content_type)
+          from_io(file, content_type, file_name)
         else
-          path = file.to_s
-          new(
-            bytes: File.binread(path),
-            file_name: file_name || File.basename(path),
-            content_type: content_type
-          )
+          from_path(file.to_s, content_type, file_name)
         end
       end
+
+      def self.from_io(io, content_type, file_name)
+        # Read from the start so a partially-consumed IO still uploads whole.
+        io.rewind if io.respond_to?(:rewind)
+        new(bytes: io.read, file_name: file_name || "upload", content_type: content_type)
+      end
+
+      def self.from_path(path, content_type, file_name)
+        new(
+          bytes: File.binread(path),
+          file_name: file_name || File.basename(path),
+          content_type: content_type
+        )
+      end
+      private_class_method :from_io, :from_path
 
       def initialize(bytes:, file_name:, content_type:)
         @bytes = bytes
